@@ -1,0 +1,9 @@
+node_modules/
+ios/
+android/
+*.aab
+*.apk
+*.jks
+*.keystore
+.firebase/
+.DS_Store

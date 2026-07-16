@@ -1,0 +1,79 @@
+# Akış — iOS bulut build (Codemagic, Mac gerekmeden). Capacitor + SPM (Podfile YOK).
+# ASC API anahtarı = hesap-geneli "misyon_asc_key" integration (Codemagic'te zaten kurulu).
+# Bundle com.asimgokcek.akis · App Store App ID 6791552371 · Team SGMQ8NVKU3. Ücretsiz, IAP yok.
+workflows:
+  ios-testflight:
+    name: Akış iOS → TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: misyon_asc_key
+    environment:
+      vars:
+        BUNDLE_ID: "com.asimgokcek.akis"
+        APP_STORE_APPLE_ID: "6791552371"
+      node: 18
+      xcode: latest
+    scripts:
+      - name: Bağımlılıkları kur
+        script: |
+          npm ci || npm install
+      - name: Capacitor iOS ekle/senkronla (+ikon)
+        script: |
+          if [ ! -d "ios" ]; then npx cap add ios; fi
+          npx @capacitor/assets generate --ios || echo "assets üretilemedi, varsayılan ikonla devam"
+          npx cap sync ios
+      - name: iOS build numarasını benzersiz yap
+        script: |
+          cd ios/App
+          LAST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          case "$LAST" in ''|*[!0-9]*) LAST=0;; esac
+          NEXT=$((LAST + 1))
+          if [ -n "$BUILD_NUMBER" ] && [ "$BUILD_NUMBER" -gt "$NEXT" ] 2>/dev/null; then NEXT=$BUILD_NUMBER; fi
+          agvtool new-version -all $NEXT
+          agvtool new-marketing-version 1.0.0
+          echo "iOS CFBundleVersion = $NEXT · marketing 1.0.0"
+      - name: Info.plist — URL şeması + şifreleme muafiyeti
+        script: |
+          PLIST="ios/App/App/Info.plist"
+          /usr/libexec/PlistBuddy -c "Delete :CFBundleURLTypes" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string com.asimgokcek.akis" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
+      - name: iOS imzalama dosyalarını oluştur/al (sertifika + profil)
+        script: |
+          keychain initialize
+          # Apple 3-cert limiti tuzağı: EN YENİ 1 hariç dağıtım sertifikalarını sil (her build taze üretir).
+          set +e
+          for CT in DISTRIBUTION IOS_DISTRIBUTION; do
+            app-store-connect certificates list --certificate-type $CT --json 2>/dev/null \
+              | jq -r 'sort_by(.attributes.expirationDate)|reverse|.[1:]|.[].id' 2>/dev/null \
+              | while read -r cid; do [ -n "$cid" ] && app-store-connect certificates delete "$cid" --yes </dev/null 2>/dev/null; done
+          done
+          app-store-connect profiles list --json 2>/dev/null \
+            | jq -r '.[]|select(.attributes.name|test("asimgokcek|Akis|akis"))|.id' 2>/dev/null \
+            | while read -r pid; do [ -n "$pid" ] && app-store-connect profiles delete "$pid" --yes </dev/null 2>/dev/null; done
+          set -e
+          echo "Imza temizligi denendi (hatalar yok sayildi)."
+          openssl genrsa -out /tmp/cert_key.pem 2048
+          app-store-connect fetch-signing-files "com.asimgokcek.akis" \
+            --type IOS_APP_STORE \
+            --certificate-key @file:/tmp/cert_key.pem \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: IPA derle (SPM → xcodeproj, workspace YOK)
+        script: |
+          xcode-project build-ipa \
+            --project "ios/App/App.xcodeproj" \
+            --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: false
+        submit_to_app_store: false

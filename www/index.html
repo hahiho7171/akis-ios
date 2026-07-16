@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0e1116" />
+  <title>Akış — Odak</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ===================== HOME / KURULUM ===================== -->
+    <section id="view-home" class="view active">
+      <header class="home-top">
+        <h1 class="brand">Akış</h1>
+        <div class="top-actions">
+          <button id="btn-lang" class="icon-btn" title="Language" aria-label="Language">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>
+          </button>
+          <button id="btn-stats" class="icon-btn" title="İstatistikler" aria-label="İstatistikler">
+            <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="home-body">
+        <p class="tagline" data-i18n="tagline">Sana uyan tempoyu seç. Katı değil, esnek.</p>
+
+        <!-- Mod seçimi -->
+        <div class="mode-grid" id="mode-grid">
+          <button class="mode-card active" data-mode="pomodoro">
+            <span class="mode-name" data-i18n="mode_pomodoro">Pomodoro</span>
+            <span class="mode-desc" data-i18n="mode_pomodoro_desc">25 dk çalış · 5 dk mola</span>
+          </button>
+          <button class="mode-card" data-mode="fiftytwo">
+            <span class="mode-name" data-i18n="mode_fiftytwo">52 / 17</span>
+            <span class="mode-desc" data-i18n="mode_fiftytwo_desc">Bilimsel derin tempo</span>
+          </button>
+          <button class="mode-card" data-mode="flowtime">
+            <span class="mode-name" data-i18n="mode_flowtime">Flowtime</span>
+            <span class="mode-desc" data-i18n="mode_flowtime_desc">Yukarı sayar · sen bitir</span>
+          </button>
+          <button class="mode-card" data-mode="custom">
+            <span class="mode-name" data-i18n="mode_custom">Kendin Ayarla</span>
+            <span class="mode-desc" data-i18n="mode_custom_desc">Süreyi sen belirle</span>
+          </button>
+        </div>
+
+        <!-- Custom süre ayarı -->
+        <div id="custom-setup" class="custom-setup hidden">
+          <div class="stepper">
+            <label data-i18n="custom_work">Çalışma</label>
+            <div class="stepper-row">
+              <button class="step-btn" data-target="work" data-delta="-5">−</button>
+              <span class="step-val"><b id="work-min">30</b> min</span>
+              <button class="step-btn" data-target="work" data-delta="5">+</button>
+            </div>
+          </div>
+          <div class="stepper">
+            <label data-i18n="custom_break">Mola</label>
+            <div class="stepper-row">
+              <button class="step-btn" data-target="break" data-delta="-1">−</button>
+              <span class="step-val"><b id="break-min">5</b> min</span>
+              <button class="step-btn" data-target="break" data-delta="1">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Görev etiketi -->
+        <input id="task-input" class="task-input" type="text" maxlength="40"
+               data-i18n-ph="task_ph" placeholder="Ne üzerine çalışıyorsun? (isteğe bağlı)" />
+
+        <!-- Görsel seçimi -->
+        <div class="visual-picker" id="visual-picker">
+          <span class="picker-label" data-i18n="label_visual">Görsel</span>
+          <div class="visual-chips">
+            <button class="chip active" data-visual="hourglass" data-i18n="vis_hourglass">Kum saati</button>
+            <button class="chip" data-visual="ring" data-i18n="vis_ring">Halka</button>
+            <button class="chip" data-visual="clock" data-i18n="vis_clock">Analog saat</button>
+            <button class="chip" data-visual="digits" data-i18n="vis_digits">Dijital</button>
+          </div>
+        </div>
+
+        <!-- Akış Göleti (mini) -->
+        <div class="pond-card">
+          <div class="pond-head">
+            <h4>🌊 <span data-i18n="pond_title">Akış Göletin</span></h4>
+            <span class="pond-count" id="pond-count"></span>
+          </div>
+          <canvas id="pond-mini"></canvas>
+        </div>
+
+        <button id="btn-start" class="start-btn" data-i18n="start">Başla</button>
+      </div>
+    </section>
+
+    <!-- ===================== FOCUS / TAM EKRAN ===================== -->
+    <section id="view-focus" class="view">
+      <div class="focus-topbar">
+        <button id="btn-back" class="icon-btn ghost" title="Bitir" aria-label="Bitir">
+          <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <span id="focus-task" class="focus-task"></span>
+        <button id="btn-fullscreen" class="icon-btn ghost" title="Tam ekran" aria-label="Tam ekran">
+          <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+        </button>
+      </div>
+
+      <div class="focus-stage">
+        <canvas id="visual-canvas"></canvas>
+        <!-- Ödül balonu -->
+        <div id="reward-toast" class="reward-toast">
+          <span class="emoji" id="reward-emoji">🌿</span>
+          <div class="r-title" id="reward-title"></div>
+          <div class="r-sub" id="reward-sub"></div>
+        </div>
+      </div>
+
+      <!-- Süre bitince: flow prompt -->
+      <div id="flow-prompt" class="flow-prompt hidden">
+        <p data-i18n="flow_prompt">Süre doldu. Akıştaysan durma.</p>
+        <div class="flow-actions">
+          <button id="btn-extend" class="pill" data-i18n="flow_extend">+5 dk devam</button>
+          <button id="btn-tobreak" class="pill primary" data-i18n="flow_break">Molaya geç</button>
+        </div>
+      </div>
+
+      <div class="focus-controls">
+        <button id="btn-sound" class="round-btn" title="Sesler" aria-label="Sesler">
+          <svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>
+        </button>
+        <button id="btn-playpause" class="round-btn big" title="Duraklat" aria-label="Duraklat">
+          <svg id="ic-pause" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+          <svg id="ic-play" class="hidden" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>
+        </button>
+        <button id="btn-skip" class="round-btn" title="Atla" aria-label="Atla">
+          <svg viewBox="0 0 24 24"><path d="M5 4l10 8-10 8zM19 5v14"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- ===================== SES PANELİ ===================== -->
+    <div id="sound-panel" class="drawer">
+      <div class="drawer-head">
+        <h3 data-i18n="sounds">Sesler</h3>
+        <button id="sound-close" class="icon-btn ghost"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="drawer-body">
+        <div class="sound-section">
+          <h4 data-i18n="ambient">Ortam sesi</h4>
+          <div class="sound-chips" id="ambient-chips">
+            <button class="chip" data-ambient="off" data-i18n="amb_off">Sessiz</button>
+            <button class="chip" data-ambient="rain" data-i18n="amb_rain">Yağmur</button>
+            <button class="chip" data-ambient="fire" data-i18n="amb_fire">Şömine</button>
+            <button class="chip" data-ambient="brown" data-i18n="amb_brown">Brown noise</button>
+            <button class="chip" data-ambient="white" data-i18n="amb_white">White noise</button>
+            <button class="chip" data-ambient="pink" data-i18n="amb_pink">Pink noise</button>
+            <button class="chip" data-ambient="tick" data-i18n="amb_tick">Tik-tak</button>
+          </div>
+          <div class="vol-row">
+            <svg class="vol-ic" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/></svg>
+            <input id="ambient-vol" type="range" min="0" max="100" value="50" />
+          </div>
+        </div>
+        <div class="sound-section">
+          <h4><span data-i18n="music">Müzik</span> <span class="soon" data-i18n="music_free">kamu malı · telifsiz</span></h4>
+          <div class="sound-chips" id="music-chips">
+            <button class="chip active" data-music="off" data-i18n="mus_off">Kapalı</button>
+            <button class="chip" data-music="classic" data-i18n="mus_classic">Klasik (Satie)</button>
+            <button class="chip" data-music="lofi" data-i18n="mus_lofi">Lo-fi</button>
+          </div>
+          <div class="vol-row">
+            <svg class="vol-ic" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/></svg>
+            <input id="music-vol" type="range" min="0" max="100" value="40" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== DİL PANELİ ===================== -->
+    <div id="lang-panel" class="drawer">
+      <div class="drawer-head">
+        <h3 data-i18n="lang_title">Dil</h3>
+        <button id="lang-close" class="icon-btn ghost"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="drawer-body">
+        <div id="lang-list" class="lang-list"></div>
+      </div>
+    </div>
+
+    <!-- ===================== İSTATİSTİK ===================== -->
+    <section id="view-stats" class="view">
+      <header class="home-top">
+        <button id="stats-back" class="icon-btn ghost"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="brand" data-i18n="stats">İstatistik</h1>
+        <span style="width:40px"></span>
+      </header>
+      <div class="stats-body">
+        <div class="stat-cards">
+          <div class="stat-card"><span class="stat-num" id="st-today">0</span><span class="stat-lbl" data-i18n="st_today">Bugün (dk)</span></div>
+          <div class="stat-card"><span class="stat-num" id="st-streak">0</span><span class="stat-lbl" data-i18n="st_streak">Seri (gün)</span></div>
+          <div class="stat-card"><span class="stat-num" id="st-total">0</span><span class="stat-lbl" data-i18n="st_total">Toplam (saat)</span></div>
+        </div>
+        <h4 class="stats-h" data-i18n="last7">Son 7 gün</h4>
+        <div class="week-chart" id="week-chart"></div>
+
+        <h4 class="stats-h" id="pond-stats-h">🌊 Akış Göletin</h4>
+        <canvas id="pond-full"></canvas>
+
+        <button id="btn-reset-stats" class="text-btn" data-i18n="reset_stats">İstatistikleri sıfırla</button>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/visuals.js"></script>
+  <script src="js/timer.js"></script>
+  <script src="js/stats.js"></script>
+  <script src="js/garden.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
