@@ -12,7 +12,7 @@ workflows:
       vars:
         BUNDLE_ID: "com.asimgokcek.akis"
         APP_STORE_APPLE_ID: "6791552371"
-      node: 18
+      node: 22
       xcode: latest
     scripts:
       - name: Bağımlılıkları kur
