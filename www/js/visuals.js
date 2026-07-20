@@ -37,7 +37,9 @@ const AkisVisual = (() => {
     const time=(performance.now()-t0)/1000;
     if(st.frac!=null) shown += (st.frac-shown)*0.08;
     ctx.clearRect(0,0,W,H);
-    const cx=W/2, cy=H*0.42, R=Math.min(W*0.35, H*0.245);
+    // yatay ekranda kısa yükseklik → dengeli boyut; etiketler tuval içinde kalır
+    const landscape = W > H*1.25;
+    const cx=W/2, cy=H*(landscape?0.47:0.42), R=Math.min(W*0.32, H*(landscape?0.30:0.255));
     if(type==='clock')       drawClock(cx,cy,R,time);
     else if(type==='ring')   drawRing(cx,cy,R,time);
     else if(type==='digits') drawDigits(cx,cy,R,time);
@@ -66,9 +68,9 @@ const AkisVisual = (() => {
     const total=ws.reduce((a,b)=>a+b,0)-sp; let cxp=x-total/2;
     [...txt].forEach((c,i)=>{ ctx.fillText(c,cxp+ws[i]/2-sp/2,y); cxp+=ws[i]; });
   }
-  function phaseLabel(x,y){ const c=pal(); text(st.phaseText,x,y,13,c.line,c.glow,SANS,600,4); }
+  function phaseLabel(x,y){ const c=pal(); y=Math.max(16,Math.min(H-16,y)); text(st.phaseText,x,y,13,c.line,c.glow,SANS,600,4); }
   function dots(cx,y){
-    if(!st.total) return; const c=pal(); const gap=15,r=4.2,w=(st.total-1)*gap; let x=cx-w/2;
+    if(!st.total) return; const c=pal(); y=Math.min(H-8,y); const gap=15,r=4.2,w=(st.total-1)*gap; let x=cx-w/2;
     for(let i=0;i<st.total;i++){
       ctx.beginPath(); ctx.arc(x,y,r,0,7);
       if(i<st.done){ ctx.fillStyle=c.line; }

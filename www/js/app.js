@@ -14,6 +14,10 @@
   let task='';
   let lastSec=-1;
   let wakeLock=null;
+  let committedWork=false;   // bu çalışma fazı kaydedildi mi? (çift sayımı önler)
+  let customBreakMin=15;
+
+  function esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   // ---- ekran geçişi ----
   function show(id){
@@ -23,15 +27,13 @@
 
   // ========== HOME ==========
   function initHome(){
-    // mod seçimi
     document.querySelectorAll('#mode-grid .mode-card').forEach(card=>{
       if(card.dataset.mode===settings.mode) selectMode(card.dataset.mode);
       card.addEventListener('click', ()=>selectMode(card.dataset.mode));
     });
-    // custom steppers
     $('#work-min').textContent=settings.workMin;
     $('#break-min').textContent=settings.breakMin;
-    document.querySelectorAll('.step-btn').forEach(b=>{
+    document.querySelectorAll('.step-btn[data-target]').forEach(b=>{
       b.addEventListener('click', ()=>{
         const d=+b.dataset.delta;
         if(b.dataset.target==='work'){
@@ -44,7 +46,6 @@
         saveSettings();
       });
     });
-    // görsel chip
     document.querySelectorAll('#visual-picker .chip').forEach(ch=>{
       if(ch.dataset.visual===settings.visual) ch.classList.add('active');
       ch.addEventListener('click', ()=>{
@@ -71,6 +72,7 @@
     return {mode:settings.mode};
   }
   function startSession(){
+    committedWork=false;
     AkisTimer.configure(buildCfg());
     $('#focus-task').textContent = task || '';
     AkisVisual.setType(settings.visual);
@@ -88,28 +90,52 @@
 
   // ========== FOCUS ==========
   function initFocus(){
-    $('#btn-back').addEventListener('click', endSession);
+    $('#btn-back').addEventListener('click', requestExit);
     $('#btn-playpause').addEventListener('click', ()=>{
       AkisTimer.toggle();
       const running=AkisTimer.running; setPlayIcon(running);
       if(running){ AkisAudio.resume(); AkisAudio.resumeMusic(); requestWakeLock(); }
       else { AkisAudio.suspend(); AkisAudio.pauseMusic(); releaseWakeLock(); }
     });
-    $('#btn-skip').addEventListener('click', ()=>{
-      hideFlow();
-      if(AkisTimer.phase==='work'){ commitWork(); AkisTimer.goNext(true); }
-      else { AkisTimer.goNext(true); }
-      applyPhaseVisual();
-      setPlayIcon(true);
-    });
     $('#btn-fullscreen').addEventListener('click', toggleFullscreen);
     $('#btn-sound').addEventListener('click', ()=>toggleDrawer(true));
     $('#btn-extend').addEventListener('click', ()=>{ hideFlow(); AkisTimer.extend(5*60); setPlayIcon(true); });
     $('#btn-tobreak').addEventListener('click', ()=>{ hideFlow(); commitWork(); AkisTimer.goNext(true); applyPhaseVisual(); setPlayIcon(true); });
 
+    // Mola butonu → süre seçici
+    $('#btn-break').addEventListener('click', openBreakSheet);
+    $('#break-sheet-x').addEventListener('click', closeBreakSheet);
+    $('#bs-custom').addEventListener('click', ()=>$('#bs-custom-row').classList.remove('hidden'));
+    $('#bs-start').addEventListener('click', ()=>pickBreak(customBreakMin));
+    document.querySelectorAll('#bs-chips .chip[data-min]').forEach(ch=>{
+      ch.addEventListener('click', ()=>pickBreak(+ch.dataset.min));
+    });
+    document.querySelectorAll('#bs-custom-row .step-btn[data-bd]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        customBreakMin=Math.max(1, Math.min(120, customBreakMin + (+b.dataset.bd)));
+        $('#bs-min-lbl').textContent=t('dur_min',{n:customBreakMin});
+      });
+    });
+
     AkisTimer.on('tick', onTick);
     AkisTimer.on('phaseEnd', onPhaseEnd);
-    AkisTimer.on('phaseStart', ()=>{ pushState(); });
+    AkisTimer.on('phaseStart', (phase)=>{ if(phase==='work') committedWork=false; pushState(); });
+  }
+
+  function refreshBreakChips(){
+    document.querySelectorAll('#bs-chips .chip[data-min]').forEach(ch=>{
+      ch.textContent=t('dur_min',{n:+ch.dataset.min});
+    });
+    $('#bs-min-lbl').textContent=t('dur_min',{n:customBreakMin});
+  }
+  function openBreakSheet(){ refreshBreakChips(); $('#bs-custom-row').classList.add('hidden'); $('#break-sheet').classList.remove('hidden'); }
+  function closeBreakSheet(){ $('#break-sheet').classList.add('hidden'); }
+  function pickBreak(min){
+    closeBreakSheet();
+    if(AkisTimer.phase==='work'){ commitWork(); }
+    AkisTimer.customBreak(min*60);
+    applyPhaseVisual(); setPlayIcon(true);
+    AkisAudio.resume(); AkisAudio.resumeMusic();
   }
 
   function pushState(s){
@@ -126,7 +152,6 @@
   }
   function onTick(s){
     pushState(s);
-    // tik-tak sesi: her yeni saniyede bir
     const sec=Math.floor(s.elapsed);
     if(sec!==lastSec){ lastSec=sec; if(s.running && AkisAudio.current==='tick') AkisAudio.playTickOnce(); }
   }
@@ -134,30 +159,42 @@
   function onPhaseEnd(phase){
     chime(phase==='work');
     if(phase==='work'){
-      // sabit modda süre doldu → akış sorusu (flow prompt)
       showFlow();
     }else{
-      // mola bitti → otomatik çalışmaya geç
       AkisTimer.goNext(true); applyPhaseVisual(); setPlayIcon(true);
     }
   }
 
   function commitWork(){
+    if(committedWork) return;
     const s=AkisTimer.snapshot();
     const mins=s.elapsed/60;
     if(mins>=1){
-      const item=AkisStats.recordFocus(mins);
+      committedWork=true;
+      const item=AkisStats.recordFocus(mins, task);
       if(item) showReward(item);
       refreshPondMini();
     }
   }
 
-  function endSession(){
+  // ---- Çıkış: onay iste, çalışılan süreyi kaydet ----
+  function requestExit(){
+    openModal({
+      title:t('exit_title'),
+      bodyHTML:`<p>${esc(t('exit_body'))}</p>`,
+      actions:[
+        {label:t('cancel'), cls:'ghost'},
+        {label:t('exit_yes'), cls:'danger', fn:doExit}
+      ]
+    });
+  }
+  function doExit(){
+    if(AkisTimer.phase==='work' && !committedWork) commitWork();
     AkisTimer.pause();
     AkisVisual.stop();
     AkisAudio.stopAll();
     releaseWakeLock();
-    hideFlow(); toggleDrawer(false);
+    hideFlow(); closeBreakSheet(); toggleDrawer(false);
     refreshPondMini();
     show('view-home');
   }
@@ -185,7 +222,6 @@
     const av=$('#ambient-vol'); av.value=settings.ambientVol;
     av.addEventListener('input', ()=>{ settings.ambientVol=+av.value; saveSettings(); AkisAudio.setVolume(av.value/100); });
 
-    // müzik kanalı (bağımsız)
     document.querySelectorAll('#music-chips .chip').forEach(ch=>{
       if(ch.dataset.music===settings.music){
         document.querySelectorAll('#music-chips .chip').forEach(x=>x.classList.remove('active')); ch.classList.add('active');
@@ -200,14 +236,20 @@
     });
     const mv=$('#music-vol'); mv.value=settings.musicVol;
     mv.addEventListener('input', ()=>{ settings.musicVol=+mv.value; saveSettings(); AkisAudio.setMusicVolume(mv.value/100); });
+
+    // drawer arka planı → dokununca panelleri kapat
+    $('#drawer-backdrop').addEventListener('click', ()=>{ toggleDrawer(false); $('#lang-panel').classList.remove('open'); syncBackdrop(); });
   }
   function applyAmbient(kind){
     AkisAudio.setVolume(settings.ambientVol/100);
     AkisAudio.setAmbient(kind);
-    // aktif çip senkronu
     document.querySelectorAll('#ambient-chips .chip').forEach(x=>x.classList.toggle('active', x.dataset.ambient===kind));
   }
-  function toggleDrawer(open){ $('#sound-panel').classList.toggle('open', open); }
+  function toggleDrawer(open){ $('#sound-panel').classList.toggle('open', open); syncBackdrop(); }
+  function syncBackdrop(){
+    const anyOpen = $('#sound-panel').classList.contains('open') || $('#lang-panel').classList.contains('open');
+    $('#drawer-backdrop').classList.toggle('open', anyOpen);
+  }
 
   // ========== ÖDÜL BALONU ==========
   let rewardTO=null;
@@ -220,23 +262,77 @@
     clearTimeout(rewardTO); rewardTO=setTimeout(()=>box.classList.remove('show'), 2600);
   }
 
-  // ========== İSTATİSTİK + GÖLET ==========
+  // ========== GENEL MODAL ==========
+  let modalOnClose=null;
+  function openModal(opts){
+    $('#modal-title').textContent=opts.title||'';
+    $('#modal-body').innerHTML=opts.bodyHTML||'';
+    const acts=$('#modal-actions'); acts.innerHTML='';
+    (opts.actions||[]).forEach(a=>{
+      const b=document.createElement('button');
+      b.className='m-btn '+(a.cls||'');
+      b.textContent=a.label;
+      b.addEventListener('click', ()=>{ closeModal(); if(a.fn) a.fn(); });
+      acts.appendChild(b);
+    });
+    modalOnClose=opts.onClose||null;
+    $('#modal').classList.add('open');
+  }
+  function closeModal(){ $('#modal').classList.remove('open'); const f=modalOnClose; modalOnClose=null; if(f) f(); }
+  function initModal(){
+    $('#modal-x').addEventListener('click', closeModal);
+    $('#modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });
+  }
+
+  // oturum listesi HTML'i
+  function sessionListHTML(list){
+    if(!list || !list.length) return `<div class="empty-row">${esc(t('no_sessions'))}</div>`;
+    return `<ul class="sess-list">`+list.map(s=>{
+      const d=new Date(s.ts||0);
+      const hh=String(d.getHours()).padStart(2,'0'), mm=String(d.getMinutes()).padStart(2,'0');
+      const nm=(s.name && s.name.trim()) ? esc(s.name) : esc(t('session_unnamed'));
+      const time=(s.ts? ` · ${hh}:${mm}`:'');
+      return `<li><span class="sess-name">${nm}</span><span class="sess-meta">${esc(t('dur_min',{n:s.min}))}${time}</span></li>`;
+    }).join('')+`</ul>`;
+  }
+  function openTodaySessions(){
+    openModal({ title:t('today_sessions'), bodyHTML:sessionListHTML(AkisStats.todaySessions()) });
+  }
+  function openDayDetail(dateStr, dayLabel){
+    const list=AkisStats.sessionsForDate(dateStr);
+    const mins=AkisStats.dayMinutes(dateStr);
+    const summary=`<div class="day-summary">${esc(t('dur_min',{n:mins}))} · ${esc(t('sessions_count',{n:list.length}))}</div>`;
+    openModal({ title:dayLabel, bodyHTML: summary + sessionListHTML(list) });
+  }
+
+  // ========== İSTATİSTİK + ORMAN ==========
   function initStats(){
     $('#stats-back').addEventListener('click', ()=>{ AkisGarden.unmount($('#pond-full')); show('view-home'); refreshPondMini(); });
+    $('#btn-today-sessions').addEventListener('click', openTodaySessions);
     $('#btn-reset-stats').addEventListener('click', ()=>{
-      if(confirm(t('reset_confirm'))){ AkisStats.reset(); openStats(); refreshPondMini(); }
+      openModal({
+        title:t('reset_title'),
+        bodyHTML:`<p>${esc(t('reset_confirm'))}</p>`,
+        actions:[
+          {label:t('cancel'), cls:'ghost'},
+          {label:t('reset_ok'), cls:'danger', fn:()=>{ AkisStats.reset(); openStats(); refreshPondMini(); }}
+        ]
+      });
     });
   }
   function openStats(){
     $('#st-today').textContent = AkisStats.todayMinutes();
     $('#st-streak').textContent = AkisStats.streak();
     $('#st-total').textContent = AkisStats.totalHours().toFixed(1);
-    const ph=$('#pond-stats-h'); if(ph) ph.textContent='🌊 '+t('pond_stats_title',{n:AkisStats.itemCount()});
-    // haftalık grafik (gün adları yerel)
+    const ph=$('#pond-stats-h'); if(ph) ph.textContent='🌳 '+t('forest_stats_title',{n:AkisStats.itemCount()});
+    // haftalık grafik (gün adları yerel) — barlar tıklanabilir
     const wk=AkisStats.last7(AkisI18n.current()); const max=Math.max(30,...wk.map(d=>d.minutes));
     $('#week-chart').innerHTML = wk.map(d=>
-      `<div class="week-bar"><div class="bar" style="height:${Math.round(d.minutes/max*100)}%"></div><span class="day">${d.day}</span></div>`
+      `<div class="week-bar" data-date="${d.date}" data-day="${esc(d.day)}"><div class="bar" style="height:${Math.round(d.minutes/max*100)}%"></div><span class="day">${esc(d.day)}</span></div>`
     ).join('');
+    document.querySelectorAll('#week-chart .week-bar').forEach(bar=>{
+      bar.addEventListener('click', ()=>openDayDetail(bar.dataset.date, bar.dataset.day));
+    });
     show('view-stats');
     requestAnimationFrame(()=>AkisGarden.mount($('#pond-full'), AkisStats.items()));
   }
@@ -244,7 +340,7 @@
     const cv=$('#pond-mini'); if(!cv) return;
     AkisGarden.update(cv, AkisStats.items());
     if(!cv._mounted){ AkisGarden.mount(cv, AkisStats.items()); cv._mounted=true; }
-    const c=$('#pond-count'); if(c) c.textContent=t('pond_count',{n:AkisStats.itemCount()});
+    const c=$('#pond-count'); if(c) c.textContent=t('forest_count',{n:AkisStats.itemCount()});
   }
 
   // ========== yardımcılar ==========
@@ -277,17 +373,14 @@
   }
   function releaseWakeLock(){ try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(e){} }
 
-  // dikkat engelleme (web): sekme değişince nazik uyarı + sesi kıs
   document.addEventListener('visibilitychange', ()=>{
-    if(document.hidden && AkisTimer.running && AkisTimer.phase==='work'){
-      // odak sırasında sekmeden çıkıldı — sadece işaretliyoruz (mobilde katı mod eklenecek)
-    }
+    if(document.hidden && AkisTimer.running && AkisTimer.phase==='work'){ /* mobilde katı mod eklenecek */ }
   });
 
   // ========== DİL SEÇİCİ ==========
   function initLang(){
-    $('#btn-lang').addEventListener('click', ()=>{ renderLangList(); $('#lang-panel').classList.add('open'); });
-    $('#lang-close').addEventListener('click', ()=>$('#lang-panel').classList.remove('open'));
+    $('#btn-lang').addEventListener('click', ()=>{ renderLangList(); $('#lang-panel').classList.add('open'); syncBackdrop(); });
+    $('#lang-close').addEventListener('click', ()=>{ $('#lang-panel').classList.remove('open'); syncBackdrop(); });
   }
   function renderLangList(){
     const cur=AkisI18n.current();
@@ -299,11 +392,12 @@
        </button>`
     ).join('');
     box.querySelectorAll('.lang-item').forEach(b=>{
-      b.addEventListener('click', ()=>{ AkisI18n.setLang(b.dataset.lang); $('#lang-panel').classList.remove('open'); });
+      b.addEventListener('click', ()=>{ AkisI18n.setLang(b.dataset.lang); $('#lang-panel').classList.remove('open'); syncBackdrop(); });
     });
   }
   function onLangChange(){
     refreshPondMini();
+    refreshBreakChips();
     pushState();
     if($('#view-stats').classList.contains('active')) openStats();
   }
@@ -311,9 +405,12 @@
   // ========== başlat ==========
   function init(){
     AkisVisual.init($('#visual-canvas'));
-    initHome(); initFocus(); initSound(); initStats(); initLang();
+    initHome(); initFocus(); initSound(); initStats(); initLang(); initModal();
     AkisI18n.apply();
     AkisI18n.onChange(onLangChange);
+    refreshBreakChips();
+    if(window.AkisNotify) AkisNotify.init();
+    window.addEventListener('orientationchange', ()=>{ setTimeout(()=>AkisVisual.resize(), 250); });
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
   else init();

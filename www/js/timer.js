@@ -94,7 +94,17 @@ const AkisTimer = (() => {
     targetSec+=sec; running=true; startLoop();
   }
 
+  /* Kullanıcının seçtiği süreyle mola başlat (Mola butonu). Geri sayımlı, sabit süre. */
+  function customBreak(sec){
+    stopLoop();
+    phase='break'; elapsed=0; countUp=false; targetSec=Math.max(30,sec);
+    running=true;
+    emit('phaseStart', phase, snapshot());
+    startLoop();
+    emit('tick', snapshot());
+  }
+
   return { on, configure, reset, start, pause, resume, toggle,
-           finishCurrent, goNext, extend, snapshot,
+           finishCurrent, goNext, extend, customBreak, snapshot,
            get phase(){return phase;}, get running(){return running;} };
 })();

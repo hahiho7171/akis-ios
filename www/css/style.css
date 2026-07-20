@@ -207,3 +207,121 @@ input[type=range]:disabled{opacity:.4}
 [dir="rtl"] .lang-item{text-align:right}
 
 .hidden{display:none!important}
+
+/* ============================================================= */
+/* ===== v2 EKLER (orman + oturumlar + mola + landscape) ======= */
+/* ============================================================= */
+
+/* --- Başlat butonu: temiz, tek ton, gölgesiz his --- */
+.start-btn{
+  margin-top:8px;
+  background:linear-gradient(180deg,#46d5e6 0%,#2f96e8 100%);
+  color:#052632;font-weight:800;font-size:18px;letter-spacing:.3px;
+  padding:18px;border-radius:16px;border:none;
+  box-shadow:0 8px 20px rgba(47,150,232,.28);
+  transition:transform .12s,box-shadow .2s;
+}
+.start-btn:active{transform:scale(.985);box-shadow:0 4px 12px rgba(47,150,232,.26)}
+
+/* --- İstatistikleri sıfırla: net, okunur buton --- */
+.text-btn{
+  align-self:center;margin:6px auto 6px;
+  padding:12px 22px;border-radius:12px;
+  background:var(--card);border:1px solid var(--line);
+  color:var(--danger);font-size:14px;font-weight:600;
+}
+.text-btn:active{transform:scale(.97);background:var(--card-2)}
+
+/* --- Odak kontrol etiketleri (Sesler / Mola) --- */
+.focus-controls{align-items:flex-start}
+.fctrl{display:flex;flex-direction:column;align-items:center;gap:6px}
+.fctrl-cap{color:var(--muted);font-size:11.5px;font-weight:500}
+
+/* --- Mola süresi seçim kartı --- */
+.break-sheet{
+  position:absolute;left:50%;bottom:120px;transform:translateX(-50%);z-index:16;
+  width:min(360px,90%);background:var(--card-2);border:1px solid var(--line);
+  border-radius:18px;padding:12px 16px 16px;box-shadow:var(--shadow);
+  animation:rise .28s var(--ease);
+}
+.bs-head{display:flex;align-items:center;justify-content:space-between}
+.bs-head h4{margin:6px 0;font-size:15px}
+.bs-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.bs-chips .chip{cursor:pointer}
+.chip.alt{border-style:dashed}
+.bs-custom-row{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+.bs-min-lbl{min-width:64px;text-align:center;font-size:15px;font-weight:600}
+.bs-custom-row .pill{flex:1;min-width:120px}
+
+/* --- Drawer arka planı (ses/dil panelleri açıkken odak butonlarını kilitler) --- */
+.drawer-backdrop{
+  position:absolute;inset:0;z-index:15;background:rgba(3,6,10,.5);
+  opacity:0;pointer-events:none;transition:opacity .3s;
+}
+.drawer-backdrop.open{opacity:1;pointer-events:auto}
+
+/* --- Genel modal (onay + oturum detay listeleri) --- */
+.modal-overlay{
+  position:absolute;inset:0;z-index:40;display:none;align-items:center;justify-content:center;
+  padding:24px;background:rgba(3,6,10,.62);
+}
+.modal-overlay.open{display:flex}
+.modal-card{
+  width:min(400px,100%);max-height:82vh;overflow-y:auto;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:20px;
+  box-shadow:var(--shadow);animation:pop .26s var(--ease);
+}
+@keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 6px}
+.modal-head h3{margin:0;font-size:18px}
+.modal-body{padding:4px 18px 8px}
+.modal-body p{margin:6px 0 4px;color:var(--muted);font-size:14.5px;line-height:1.5}
+.modal-actions{display:flex;gap:10px;padding:10px 18px 18px}
+.modal-actions:empty{display:none}
+.m-btn{flex:1;padding:13px;border-radius:12px;background:var(--card);font-weight:650;font-size:15px;color:var(--text);border:1px solid var(--line)}
+.m-btn:active{transform:scale(.97)}
+.m-btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+.m-btn.primary{background:var(--accent);border-color:var(--accent);color:#04211f}
+.m-btn.ghost{background:transparent}
+
+/* --- Oturum listeleri (bugünkü oturumlar / gün detayı) --- */
+.sess-list{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
+.sess-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 4px;border-bottom:1px solid var(--line)}
+.sess-list li:last-child{border-bottom:none}
+.sess-name{font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sess-meta{color:var(--muted);font-size:12.5px;white-space:nowrap;flex-shrink:0}
+.day-summary{color:var(--accent);font-weight:650;font-size:15px;margin:2px 0 8px}
+.empty-row{color:var(--muted);font-size:14px;text-align:center;padding:22px 0}
+
+/* --- Bugünkü oturumlar bölüm butonu --- */
+.section-btn{display:flex;align-items:center;justify-content:space-between;width:100%;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px 16px;font-size:15px;font-weight:600;color:var(--text)}
+.section-btn svg{width:20px;height:20px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.section-btn:active{transform:scale(.99);background:var(--card-2)}
+
+/* --- Haftalık grafik: tıklanabilir + ipucu --- */
+.week-bar{cursor:pointer;border-radius:8px;transition:background .15s}
+.week-bar:active{background:rgba(255,255,255,.05)}
+.chart-hint{color:var(--muted);font-size:12px;text-align:center;margin:-6px 0 0}
+
+/* ============================================================= */
+/* ===== YATAY EKRAN (landscape) — sığdır, kaydırma engelle ==== */
+/* ============================================================= */
+@media (orientation:landscape) and (max-height:560px){
+  .focus-topbar{padding:6px 14px}
+  .focus-controls{gap:22px;padding:6px 0 calc(8px + env(safe-area-inset-bottom))}
+  .round-btn{width:50px;height:50px}
+  .round-btn svg{width:21px;height:21px}
+  .round-btn.big{width:62px;height:62px}
+  .round-btn.big svg{width:26px;height:26px}
+  .fctrl{gap:3px}
+  .fctrl-cap{font-size:10px}
+  .break-sheet,.flow-prompt{bottom:86px}
+  .drawer{max-height:94vh;padding-top:4px}
+  .drawer-body{display:flex;flex-wrap:wrap;gap:0 24px}
+  .drawer-body .sound-section{flex:1;min-width:240px}
+  .home-body,.stats-body{padding-top:4px;gap:12px}
+  .modal-card{max-height:90vh}
+}

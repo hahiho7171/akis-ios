@@ -82,10 +82,10 @@
           </div>
         </div>
 
-        <!-- Akış Göleti (mini) -->
+        <!-- Akış Ormanı (mini) -->
         <div class="pond-card">
           <div class="pond-head">
-            <h4>🌊 <span data-i18n="pond_title">Akış Göletin</span></h4>
+            <h4>🌳 <span data-i18n="forest_title">Akış Ormanın</span></h4>
             <span class="pond-count" id="pond-count"></span>
           </div>
           <canvas id="pond-mini"></canvas>
@@ -126,17 +126,45 @@
         </div>
       </div>
 
+      <!-- Mola süresi seçimi -->
+      <div id="break-sheet" class="break-sheet hidden">
+        <div class="bs-head">
+          <h4 data-i18n="break_pick_title">Mola süresi</h4>
+          <button id="break-sheet-x" class="icon-btn ghost"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="bs-chips" id="bs-chips">
+          <button class="chip" data-min="1"></button>
+          <button class="chip" data-min="5"></button>
+          <button class="chip" data-min="10"></button>
+          <button class="chip alt" id="bs-custom" data-i18n="break_custom">Kendin belirle</button>
+        </div>
+        <div id="bs-custom-row" class="bs-custom-row hidden">
+          <button class="step-btn" data-bd="-1">−</button>
+          <span class="bs-min-lbl" id="bs-min-lbl">15 dk</span>
+          <button class="step-btn" data-bd="1">+</button>
+          <button id="bs-start" class="pill primary" data-i18n="break_start">Molayı başlat</button>
+        </div>
+      </div>
+
       <div class="focus-controls">
-        <button id="btn-sound" class="round-btn" title="Sesler" aria-label="Sesler">
-          <svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>
-        </button>
-        <button id="btn-playpause" class="round-btn big" title="Duraklat" aria-label="Duraklat">
-          <svg id="ic-pause" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
-          <svg id="ic-play" class="hidden" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>
-        </button>
-        <button id="btn-skip" class="round-btn" title="Atla" aria-label="Atla">
-          <svg viewBox="0 0 24 24"><path d="M5 4l10 8-10 8zM19 5v14"/></svg>
-        </button>
+        <div class="fctrl">
+          <button id="btn-sound" class="round-btn" title="Sesler" aria-label="Sesler">
+            <svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>
+          </button>
+          <span class="fctrl-cap" data-i18n="sounds">Sesler</span>
+        </div>
+        <div class="fctrl">
+          <button id="btn-playpause" class="round-btn big" title="Duraklat" aria-label="Duraklat">
+            <svg id="ic-pause" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+            <svg id="ic-play" class="hidden" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>
+          </button>
+        </div>
+        <div class="fctrl">
+          <button id="btn-break" class="round-btn" title="Mola" aria-label="Mola">
+            <svg viewBox="0 0 24 24"><path d="M4 9h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9zM17 10h2a2 2 0 0 1 0 4h-2M7 5V3M11 5V3M15 5V3"/></svg>
+          </button>
+          <span class="fctrl-cap" data-i18n="break_btn">Mola</span>
+        </div>
       </div>
     </section>
 
@@ -202,15 +230,38 @@
           <div class="stat-card"><span class="stat-num" id="st-streak">0</span><span class="stat-lbl" data-i18n="st_streak">Seri (gün)</span></div>
           <div class="stat-card"><span class="stat-num" id="st-total">0</span><span class="stat-lbl" data-i18n="st_total">Toplam (saat)</span></div>
         </div>
+
+        <!-- Bugünkü oturumlar (tıklanabilir → detay) -->
+        <button id="btn-today-sessions" class="section-btn">
+          <span data-i18n="today_sessions">Bugünkü oturumlar</span>
+          <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+
         <h4 class="stats-h" data-i18n="last7">Son 7 gün</h4>
         <div class="week-chart" id="week-chart"></div>
+        <p class="chart-hint" data-i18n="tap_hint_day">Detay için bir güne dokun</p>
 
-        <h4 class="stats-h" id="pond-stats-h">🌊 Akış Göletin</h4>
+        <h4 class="stats-h" id="pond-stats-h">🌳 Akış Ormanın</h4>
         <canvas id="pond-full"></canvas>
 
         <button id="btn-reset-stats" class="text-btn" data-i18n="reset_stats">İstatistikleri sıfırla</button>
       </div>
     </section>
+
+    <!-- ===================== DRAWER ARKA PLANI ===================== -->
+    <div id="drawer-backdrop" class="drawer-backdrop"></div>
+
+    <!-- ===================== GENEL MODAL (onay + oturum listesi) ===================== -->
+    <div id="modal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3 id="modal-title"></h3>
+          <button id="modal-x" class="icon-btn ghost"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div id="modal-body" class="modal-body"></div>
+        <div id="modal-actions" class="modal-actions"></div>
+      </div>
+    </div>
 
   </div>
 
@@ -220,6 +271,7 @@
   <script src="js/timer.js"></script>
   <script src="js/stats.js"></script>
   <script src="js/garden.js"></script>
+  <script src="js/notify.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
