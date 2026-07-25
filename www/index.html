@@ -27,6 +27,12 @@
       <div class="home-body">
         <p class="tagline" data-i18n="tagline">Sana uyan tempoyu seç. Katı değil, esnek.</p>
 
+        <!-- Reklamsız ol (3 gün muafiyet bitince / abone değilken görünür) -->
+        <button id="premium-cta" class="premium-cta hidden">
+          <span class="pc-spark">✦</span>
+          <span class="pc-text" data-i18n="premium_cta">Reklam istemiyor musun? Aylık ~1$ ile reklamsız Akış</span>
+        </button>
+
         <!-- Mod seçimi -->
         <div class="mode-grid" id="mode-grid">
           <button class="mode-card active" data-mode="pomodoro">
@@ -82,6 +88,22 @@
           </div>
         </div>
 
+        <!-- Arka plan videosu (saat stilinden bağımsız — istediğini üstüne koy) -->
+        <div class="visual-picker" id="bg-picker">
+          <span class="picker-label" data-i18n="label_bg">Arka plan</span>
+          <div class="visual-chips" id="bg-chips">
+            <button class="chip active" data-bg="none" data-i18n="bg_none">Yok</button>
+            <button class="chip" data-bg="akvaryum" data-i18n="bg_akvaryum">Akvaryum</button>
+            <button class="chip" data-bg="koi" data-i18n="bg_koi">Koi havuzu</button>
+            <button class="chip" data-bg="sualti" data-i18n="bg_sualti">Su altı</button>
+            <button class="chip" data-bg="okyanus" data-i18n="bg_okyanus">Okyanus</button>
+            <button class="chip" data-bg="selale" data-i18n="bg_selale">Şelale</button>
+            <button class="chip" data-bg="orman" data-i18n="bg_orman">Orman</button>
+            <button class="chip" data-bg="yagmur" data-i18n="bg_yagmur">Yağmurlu cam</button>
+            <button class="chip" data-bg="somine" data-i18n="bg_somine">Şömine</button>
+          </div>
+        </div>
+
         <!-- Akış Ormanı (mini) -->
         <div class="pond-card">
           <div class="pond-head">
@@ -97,14 +119,16 @@
 
     <!-- ===================== FOCUS / TAM EKRAN ===================== -->
     <section id="view-focus" class="view">
+      <video id="bg-video" class="bg-video" muted loop playsinline preload="auto"></video>
+      <div id="bg-scrim" class="bg-scrim"></div>
       <div class="focus-topbar">
         <button id="btn-back" class="icon-btn ghost" title="Bitir" aria-label="Bitir">
           <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
-        <span id="focus-task" class="focus-task"></span>
         <button id="btn-fullscreen" class="icon-btn ghost" title="Tam ekran" aria-label="Tam ekran">
           <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
         </button>
+        <span id="focus-task" class="focus-task"></span>
       </div>
 
       <div class="focus-stage">
@@ -175,24 +199,14 @@
         <button id="sound-close" class="icon-btn ghost"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="drawer-body">
+        <button id="premium-row" class="premium-row">✦ Premium — reklamsız</button>
         <div class="sound-section">
-          <h4 data-i18n="ambient">Ortam sesi</h4>
-          <div class="sound-chips" id="ambient-chips">
-            <button class="chip" data-ambient="off" data-i18n="amb_off">Sessiz</button>
-            <button class="chip" data-ambient="rain" data-i18n="amb_rain">Yağmur</button>
-            <button class="chip" data-ambient="fire" data-i18n="amb_fire">Şömine</button>
-            <button class="chip" data-ambient="brown" data-i18n="amb_brown">Brown noise</button>
-            <button class="chip" data-ambient="white" data-i18n="amb_white">White noise</button>
-            <button class="chip" data-ambient="pink" data-i18n="amb_pink">Pink noise</button>
-            <button class="chip" data-ambient="tick" data-i18n="amb_tick">Tik-tak</button>
-          </div>
-          <div class="vol-row">
-            <svg class="vol-ic" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/></svg>
-            <input id="ambient-vol" type="range" min="0" max="100" value="50" />
-          </div>
+          <h4 data-i18n="ambient">Ortam sesleri</h4>
+          <p class="mix-hint" data-i18n="mix_hint">Birden fazlasını aynı anda açıp karıştırabilirsin</p>
+          <div class="mixer" id="mixer"></div>
         </div>
         <div class="sound-section">
-          <h4><span data-i18n="music">Müzik</span> <span class="soon" data-i18n="music_free">kamu malı · telifsiz</span></h4>
+          <h4><span data-i18n="music">Müzik</span></h4>
           <div class="sound-chips" id="music-chips">
             <button class="chip active" data-music="off" data-i18n="mus_off">Kapalı</button>
             <button class="chip" data-music="classic" data-i18n="mus_classic">Klasik (Satie)</button>
@@ -268,6 +282,8 @@
   <script src="js/i18n.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/visuals.js"></script>
+  <script src="js/ads.js"></script>
+  <script src="js/premium.js"></script>
   <script src="js/timer.js"></script>
   <script src="js/stats.js"></script>
   <script src="js/garden.js"></script>

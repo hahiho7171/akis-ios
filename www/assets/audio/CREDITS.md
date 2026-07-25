@@ -15,11 +15,16 @@ Tüm sesler ticari kullanıma uygun; atıf zorunlu değil (yine de kayıt için 
   Kaynak: archive.org — https://archive.org/details/loyalty-freak-music-chill-for-real
   (320k mp3 → 128k'ya küçültüldü.)
 
-## Ortam sesleri (KODDAN ÜRETİLİYOR — telif YOK, dosya YOK)
-- Yağmur, Şömine, Brown/White/Pink noise, Tik-tak → Web Audio API ile gerçek zamanlı sentezleniyor.
-  Hiçbir ses dosyası içermez; %100 özgün, sıfır boyut, sıfır telif riski.
+## Ortam sesleri — MİXER (birlikte çalınabilir, 2026-07-23)
+Gerçek CC0 kayıtlar (Pixabay Content License — ticari serbest, atıf gerekmez), kusursuz loop (kuyruk→baş crossfade, ffmpeg):
+- **amb-rain.mp3** — Yağmur (Pixabay)
+- **amb-fire.mp3** — Şömine / çıtırdayan ateş (Pixabay)
+- **amb-birds.mp3** — Kuş / orman kuşları (Pixabay)
+- **amb-forest.mp3** — Orman doğası (Pixabay)
+- **amb-tick.mp3** — Gerçek saat tik-tak (Pixabay)
 
-## Not
-- Gerçek yağmur/kafe/şömine KAYITLARI istenirse: Pixabay (Content License, ticari serbest)
-  otomasyonu bot-korumasıyla engelliyor. Kullanıcı 2-3 dosyayı manuel indirir → `assets/audio/`
-  içine (`amb-rain.mp3`, `amb-cafe.mp3`, `amb-fire.mp3`) koyarsa audio.js'e bağlanır.
+Brown / White / Pink noise → hâlâ Web Audio API ile koddan üretiliyor (dosya yok).
+
+## Arka plan videoları (assets/video/*.mp4, 2026-07-23)
+Gerçek CC0 stok video (Pixabay Content License — ticari serbest, atıf gerekmez), kusursuz loop + sessiz + küçültülmüş (ffmpeg):
+akvaryum · koi · sualti · okyanus · selale · orman · yagmur · somine · gece · bulut. Kaynak: pixabay.com.

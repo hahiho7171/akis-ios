@@ -47,7 +47,10 @@ const AkisVisual = (() => {
   }
 
   // ---------- ortak yardımcılar ----------
+  let bgClear=false;
+  function setBgClear(v){ bgClear=!!v; }
   function vignette(dark){
+    if(bgClear) return;   // video arka plan açıkken canvas'ı koyu doldurma (video görünsün)
     const g=ctx.createRadialGradient(W/2,H*0.42,0,W/2,H*0.42,Math.max(W,H)*0.72);
     if(dark){ g.addColorStop(0,'#0a0d12'); g.addColorStop(.6,'#05070a'); g.addColorStop(1,'#000'); }
     else { g.addColorStop(0,'rgba(20,28,40,.35)'); g.addColorStop(1,'rgba(4,6,10,0)'); }
@@ -247,5 +250,5 @@ const AkisVisual = (() => {
     ctx.restore();
   }
 
-  return { init, setType, setPhase, update, start, stop, resize };
+  return { init, setType, setPhase, update, start, stop, resize, setBgClear };
 })();

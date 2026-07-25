@@ -1,43 +1,32 @@
-/* ===== audio.js — Web Audio ile telifsiz ses üretimi =====
-   Ortam sesleri (brown/white/pink noise + yağmur-benzeri + tik-tak) tamamen
-   koddan üretilir; hiçbir ses dosyası / telif gerektirmez.
-   Müzik (klasik/lo-fi) sonra CC0 dosyalarıyla eklenecek. */
+/* ===== audio.js — ORTAM SESİ MİXER'İ =====
+   Her ortam sesi bağımsız bir "kanal": kendi ses çubuğu, aynı anda birden fazlası çalar.
+   - Doğa sesleri (yağmur/şömine/kuş/orman/tik-tak) = gerçek CC0 kayıt, kusursuz loop mp3 (assets/audio/amb-*.mp3)
+   - brown/white/pink noise = koddan üretilir (Web Audio)
+   Müzik kanalı ayrıdır (klasik/lo-fi), kendi çubuğuyla.
+   Vol değeri 0..1; 0 = o kanal kapalı. */
 const AkisAudio = (() => {
   let ctx = null;
-  let ambientNode = null;   // aktif ortam ses düğümü
-  let ambientGain = null;
-  let current = 'off';
-  let volume = 0.5;
-  let tickTimer = null;
-  let tickAlt = false;
-
-  function ensure(){
-    if(!ctx){
-      const AC = window.AudioContext || window.webkitAudioContext;
-      ctx = new AC();
-    }
+  function ensureCtx(){
+    if(!ctx){ const AC = window.AudioContext || window.webkitAudioContext; ctx = new AC(); }
     if(ctx.state === 'suspended') ctx.resume();
     return ctx;
   }
 
-  // ---- Noise buffer üreticileri ----
+  // ---- Noise buffer üreticileri (brown/white/pink) ----
   function noiseBuffer(type){
-    const len = 2 * ctx.sampleRate;           // 2 sn, loop
-    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const c = ensureCtx();
+    const len = 2 * c.sampleRate;
+    const buf = c.createBuffer(1, len, c.sampleRate);
     const d = buf.getChannelData(0);
     if(type === 'white'){
       for(let i=0;i<len;i++) d[i] = Math.random()*2-1;
     } else if(type === 'brown'){
       let last = 0;
-      for(let i=0;i<len;i++){
-        const w = Math.random()*2-1;
-        last = (last + 0.02*w)/1.02;
-        d[i] = last*3.2;
-      }
-    } else if(type === 'pink'){
+      for(let i=0;i<len;i++){ const w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=last*3.2; }
+    } else { // pink
       let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
       for(let i=0;i<len;i++){
-        const w = Math.random()*2-1;
+        const w=Math.random()*2-1;
         b0=0.99886*b0+w*0.0555179; b1=0.99332*b1+w*0.0750759;
         b2=0.96900*b2+w*0.1538520; b3=0.86650*b3+w*0.3104856;
         b4=0.55000*b4+w*0.5329522; b5=-0.7616*b5-w*0.0168980;
@@ -47,127 +36,74 @@ const AkisAudio = (() => {
     return buf;
   }
 
-  // ---- Yağmur: filtrelenmiş brown+white noise, hafif dalgalanma ----
-  function buildRain(){
-    const src = ctx.createBufferSource();
-    src.buffer = noiseBuffer('brown'); src.loop = true;
-    const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=420;
-    const lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=8500;
-    // yağmurun 'nefes alması' için yavaş genlik dalgası
-    const lfo = ctx.createOscillator(); lfo.frequency.value=0.12;
-    const lfoGain = ctx.createGain(); lfoGain.gain.value=0.12;
-    const base = ctx.createGain(); base.gain.value=0.85;
-    lfo.connect(lfoGain).connect(base.gain);
-    src.connect(hp).connect(lp).connect(base);
-    src.start(); lfo.start();
-    base._extra = [src, lfo];
-    return base;
-  }
+  // ---- Kanallar ----
+  // Gerçek kayıt dosyaları (kusursuz loop). tick artık gerçek saat kaydı.
+  const FILES = {
+    rain:  'assets/audio/amb-rain.mp3',
+    fire:  'assets/audio/amb-fire.mp3',
+    birds: 'assets/audio/amb-birds.mp3',
+    forest:'assets/audio/amb-forest.mp3',
+    tick:  'assets/audio/amb-tick.mp3'
+  };
+  const NOISES = ['brown','white','pink'];
+  const NOISE_ATTEN = { brown:0.85, white:0.35, pink:0.7 };
+  const ALL_KEYS = Object.keys(FILES).concat(NOISES);
 
-  // ---- Şömine: lowpass brown-noise yatağı + rastgele çıtırtı patlamaları ----
-  let crackleBuf=null;
-  function getCrackleBuf(){
-    if(!crackleBuf){
-      crackleBuf=ctx.createBuffer(1, Math.floor(0.3*ctx.sampleRate), ctx.sampleRate);
-      const d=crackleBuf.getChannelData(0);
-      for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  const tracks = {};  // key -> {type, vol, on, el?, src?, gain?}
+  function track(key){
+    if(!tracks[key]){
+      if(NOISES.includes(key)) tracks[key] = { type:'noise', vol:0, on:false, src:null, gain:null };
+      else { const el=new Audio(); el.loop=true; el.preload='auto'; el.src=FILES[key]; tracks[key] = { type:'file', vol:0, on:false, el }; }
     }
-    return crackleBuf;
-  }
-  function buildFire(){
-    const out=ctx.createGain(); out.gain.value=0.95;
-    const src=ctx.createBufferSource(); src.buffer=noiseBuffer('brown'); src.loop=true;
-    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=360;
-    const bed=ctx.createGain(); bed.gain.value=0.6;
-    src.connect(lp).connect(bed).connect(out); src.start();
-    const crackle=()=>{
-      if(current!=='fire') return;
-      const t=ctx.currentTime;
-      const b=ctx.createBufferSource(); b.buffer=getCrackleBuf();
-      const bp=ctx.createBiquadFilter(); bp.type='bandpass';
-      bp.frequency.value=1100+Math.random()*2600; bp.Q.value=1.6;
-      const g=ctx.createGain(); const amp=0.12+Math.random()*0.5;
-      g.gain.setValueAtTime(0.0001,t);
-      g.gain.exponentialRampToValueAtTime(amp,t+0.004);
-      g.gain.exponentialRampToValueAtTime(0.0001,t+0.05+Math.random()*0.09);
-      b.connect(bp).connect(g).connect(out);
-      b.start(t); b.stop(t+0.25);
-      out._t=setTimeout(crackle, 35+Math.random()*260);
-    };
-    out._extra=[src];
-    out._stopCrackle=()=>clearTimeout(out._t);
-    crackle();
-    return out;
+    return tracks[key];
   }
 
-  function buildNoise(type){
-    const src = ctx.createBufferSource();
-    src.buffer = noiseBuffer(type); src.loop = true;
-    const g = ctx.createGain(); g.gain.value = (type==='white'?0.35:0.7);
-    src.connect(g); src.start();
-    g._extra = [src];
-    return g;
-  }
-
-  // ---- Tik-tak: her saniyede kısa klik (app'ten tetiklenir) ----
-  function playTickOnce(){
-    if(current !== 'tick') return;
-    const t = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    osc.type='square';
-    osc.frequency.value = tickAlt ? 1400 : 1050;   // tik / tak
-    tickAlt = !tickAlt;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(volume*0.5, t+0.002);
-    g.gain.exponentialRampToValueAtTime(0.0001, t+0.05);
-    osc.connect(g).connect(ambientGain);
-    osc.start(t); osc.stop(t+0.06);
-  }
-
-  function stopAmbientNode(){
-    if(tickTimer){ clearInterval(tickTimer); tickTimer=null; }
-    if(ambientNode){
-      try{
-        if(ambientNode._stopCrackle) ambientNode._stopCrackle();
-        (ambientNode._extra||[]).forEach(n=>{ try{n.stop();}catch(e){} });
-        ambientNode.disconnect();
-      }catch(e){}
-      ambientNode=null;
+  function startTrack(key){
+    const t = track(key);
+    if(t.on) return;
+    if(t.type==='noise'){
+      const c=ensureCtx();
+      const src=c.createBufferSource(); src.buffer=noiseBuffer(key); src.loop=true;
+      const g=c.createGain(); g.gain.value=t.vol*(NOISE_ATTEN[key]||0.7);
+      src.connect(g).connect(c.destination); src.start();
+      t.src=src; t.gain=g;
+    } else {
+      t.el.volume=t.vol; const p=t.el.play(); if(p&&p.catch) p.catch(()=>{});
     }
+    t.on=true;
+  }
+  function stopTrack(key){
+    const t=tracks[key]; if(!t||!t.on) return;
+    if(t.type==='noise'){ try{ t.src.stop(); t.src.disconnect(); t.gain.disconnect(); }catch(e){} t.src=null; t.gain=null; }
+    else { try{ t.el.pause(); }catch(e){} }
+    t.on=false;
   }
 
-  function setAmbient(kind){
-    ensure();
-    stopAmbientNode();
-    current = kind;
-    if(!ambientGain){
-      ambientGain = ctx.createGain();
-      ambientGain.connect(ctx.destination);
-    }
-    ambientGain.gain.value = volume;
-    if(kind==='off') return;
-    if(kind==='tick'){
-      // tik-tak app tarafından her saniye playTickOnce() ile çalınır
-      return;
-    }
-    let node;
-    if(kind==='rain') node = buildRain();
-    else if(kind==='fire') node = buildFire();
-    else node = buildNoise(kind); // brown/white/pink
-    node.connect(ambientGain);
-    ambientNode = node;
+  // Bir kanalın sesini ayarla (0 = kapat). Canlı çalışır.
+  function setTrackVolume(key, vol){
+    vol=Math.max(0, Math.min(1, vol));
+    const t=track(key); t.vol=vol;
+    if(vol<=0.001){ stopTrack(key); return; }
+    if(!t.on) startTrack(key);
+    else if(t.type==='file') t.el.volume=vol;
+    else if(t.gain) t.gain.gain.value=vol*(NOISE_ATTEN[key]||0.7);
+  }
+  function getTrackVolume(key){ return tracks[key] ? tracks[key].vol : 0; }
+
+  // Kayıtlı karışımı uygula (mix = {rain:0.4, birds:0.2, ...})
+  function applyMix(mix){ mix=mix||{}; for(const k of ALL_KEYS) setTrackVolume(k, +mix[k]||0); }
+
+  // Zamanlayıcı duraklat/devam: çalanları duraklat, geri al
+  function suspendAll(){
+    if(ctx && ctx.state==='running'){ try{ctx.suspend();}catch(e){} }
+    for(const k in tracks){ const t=tracks[k]; if(t.type==='file'&&t.on){ try{t.el.pause();}catch(e){} } }
+  }
+  function resumeAll(){
+    if(ctx && ctx.state==='suspended'){ try{ctx.resume();}catch(e){} }
+    for(const k in tracks){ const t=tracks[k]; if(t.type==='file'&&t.on&&t.vol>0){ try{ const p=t.el.play(); if(p&&p.catch)p.catch(()=>{}); }catch(e){} } }
   }
 
-  function setVolume(v){
-    volume = Math.max(0, Math.min(1, v));
-    if(ambientGain) ambientGain.gain.value = volume;
-  }
-
-  function suspend(){ if(ctx && ctx.state==='running') ctx.suspend(); }
-  function resume(){ if(ctx && ctx.state==='suspended') ctx.resume(); }
-
-  // ---- Müzik kanalı (ORTAMDAN BAĞIMSIZ): gerçek CC0/kamu-malı mp3 ----
+  // ---- Müzik kanalı (ayrı): gerçek CC0/kamu-malı mp3 ----
   const MUSIC={
     classic:['assets/audio/music-classic-1.mp3','assets/audio/music-classic-2.mp3'],
     lofi:['assets/audio/music-lofi-1.mp3','assets/audio/music-lofi-2.mp3']
@@ -194,11 +130,15 @@ const AkisAudio = (() => {
   function resumeMusic(){ if(musicEl && musicKind!=='off' && musicEl.paused) musicEl.play().catch(()=>{}); }
 
   return {
-    setAmbient, setVolume, playTickOnce,
+    keys: ALL_KEYS.slice(),
+    fileKeys: Object.keys(FILES),
+    noiseKeys: NOISES.slice(),
+    setTrackVolume, getTrackVolume, applyMix,
+    suspendAll, resumeAll,
     setMusic, setMusicVolume, pauseMusic, resumeMusic,
-    get current(){return current;},
     get musicKind(){return musicKind;},
-    suspend, resume,
-    stopAll(){ stopAmbientNode(); current='off'; if(musicEl){musicEl.pause();} musicKind='off'; }
+    // eski API uyumu (kullanılmıyor ama güvenli):
+    suspend:suspendAll, resume:resumeAll,
+    stopAll(){ for(const k in tracks) stopTrack(k); if(musicEl){musicEl.pause();} musicKind='off'; }
   };
 })();
