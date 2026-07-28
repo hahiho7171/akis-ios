@@ -83,6 +83,12 @@ const AkisVisual = (() => {
     }
   }
   function grad(x0,y0,x1,y1,c){ const g=ctx.createLinearGradient(x0,y0,x1,y1); g.addColorStop(0,c.a); g.addColorStop(1,c.b); return g; }
+  // '#rrggbb' → 'rgba(r,g,b,a)' (gradyan durak renklerinde alfa gerektiği için)
+  function rgba(hex,a){
+    const h=String(hex).replace('#','');
+    const n=parseInt(h.length===3 ? h.split('').map(c=>c+c).join('') : h, 16);
+    return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+  }
 
   // ---------- HALKA ----------
   function drawRing(cx,cy,R,time){
@@ -167,10 +173,18 @@ const AkisVisual = (() => {
     const g=ctx.createLinearGradient(cx-120,cy-size/2,cx+120,cy+size/2); g.addColorStop(0,c.a); g.addColorStop(1,c.b);
     ctx.shadowColor=c.glow; ctx.shadowBlur=26; ctx.fillStyle=g; ctx.fillText(st.timeText,cx,cy);
     ctx.restore();
-    // yansıma
-    ctx.save(); ctx.globalAlpha=0.12; ctx.scale(1,-1);
+    // yansıma — yazının hemen altında başlar, aşağı doğru sönerek biter.
+    // ÖNEMLİ: ilerleme çizgisi (cy+size*0.62) ve tur noktalarından ÖNCE kesilir; eskiden üstlerinden geçip lekeliyordu.
+    const reflTop=cy+size*0.40, reflBot=cy+size*0.56, reflMid=cy+size*0.76;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0,reflTop,W,reflBot-reflTop); ctx.clip();   // ekran uzayında bant
+    ctx.translate(0,reflMid); ctx.scale(1,-1); ctx.translate(0,-reflMid); // aynalama
     ctx.font=`200 ${size}px ${MONO}`; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillStyle=c.b; ctx.fillText(st.timeText,cx,-(cy+size*0.92)); ctx.restore();
+    // gradyan aynalanmış uzayda tanımlanır: ekran y ↔ 2*reflMid - y
+    const rg=ctx.createLinearGradient(0,2*reflMid-reflTop,0,2*reflMid-reflBot);
+    rg.addColorStop(0,rgba(c.b,0.18)); rg.addColorStop(1,rgba(c.b,0));
+    ctx.fillStyle=rg; ctx.fillText(st.timeText,cx,reflMid);
+    ctx.restore();
     // ince ilerleme çizgisi
     const rem = st.frac==null ? 1 : (1-shown); const lw2=Math.min(150,W*0.36);
     ctx.beginPath(); ctx.moveTo(cx-lw2/2,cy+size*0.62); ctx.lineTo(cx-lw2/2+lw2*rem,cy+size*0.62);

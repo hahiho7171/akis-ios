@@ -173,11 +173,14 @@
   }
   function onTick(s){ pushState(s); }
 
-  function onPhaseEnd(phase){
+  async function onPhaseEnd(phase){
     chime(phase==='work');
     if(phase==='work'){
       showFlow();
     }else{
+      // Mola bitti → YENİ DERSE geçmeden ÖNCE reklam. Sayaç reklamın arkasında akmasın diye
+      // reklam beklenir, kapandıktan sonra yeni faz başlatılır.
+      try{ if(window.AkisAds) await AkisAds.onSessionStart(); }catch(e){}
       AkisTimer.goNext(true); applyPhaseVisual(); setPlayIcon(true);
     }
   }

@@ -29,22 +29,27 @@ window.AkisAds = (function () {
   function setPremium(v) { isPremium = !!v; }
   function isPremiumNow() { return isPremium; }
 
-  // 3 GÜN ÜCRETSİZ MUAFİYET: kurulumdan sonraki ilk 3 gün reklam YOK (kart/zorlama yok).
-  const GRACE_MS = 3 * 24 * 60 * 60 * 1000; /* 3 gün ücretsiz muafiyet (QA test build'de 2 dk'ya çekilir) */
+  // 1 GÜN ÜCRETSİZ MUAFİYET: kurulumdan sonraki ilk 1 gün reklam YOK (kart/zorlama yok).
+  const GRACE_MS = 1 * 24 * 60 * 60 * 1000; /* 1 gün ücretsiz muafiyet (QA test build'de 2 dk'ya çekilir) */
   let firstRun = 0;
   function inGrace() { return firstRun > 0 && (Date.now() - firstRun < GRACE_MS); }
   function graceDaysLeft() { if (!inGrace()) return 0; return Math.ceil((GRACE_MS - (Date.now() - firstRun)) / (24 * 60 * 60 * 1000)); }
   function adsActive() { return !isPremium && firstRun > 0 && !inGrace(); }   // premium değil VE (init olmuş) VE muafiyet bitti
 
-  // Aşırı interstitial'ı önle (AdMob politikası) — en az 60 sn arayla
+  // Arka arkaya reklamı önle (AdMob "disruptive ads") — en az 20 sn arayla.
+  // NOT: eskiden 60 sn idi; açılış reklamından sonra hemen seans başlatılınca seans reklamı
+  // sessizce atlanıyordu (gelir kaybı). 20 sn hem üst üste binmeyi engelliyor hem seansı yemiyor.
   let lastInterstitial = 0;
-  const MIN_GAP = 60 * 1000;
+  const MIN_GAP = 20 * 1000;
+  const WAIT_MS = 4000;   // reklam hazır değilse en fazla bu kadar bekle, sonra kullanıcıyı bekletme
 
   // ---- durum ----
-  let interReady = false, interLoading = false;
+  let interReady = false, interLoading = false, interLoadingSince = 0;
+  const LOAD_STALL_MS = 30 * 1000;   // yükleme takılırsa bu süre sonunda yeniden denenir
   let rewReady = false, rewLoading = false;
   let rewardEarned = false;
-  let pendingReward = null; // seans-başlat rewarded çözümleyicisi
+  let pendingReward = null;  // (rewarded şu an kullanılmıyor — ileride gerekirse duruyor)
+  let pendingInter = null;   // seans-başlat interstitial çözümleyicisi
 
   function log() { /* try{ console.log.apply(console,['[ads]',...arguments]); }catch(e){} */ }
 
@@ -74,8 +79,16 @@ window.AkisAds = (function () {
       try {
         A.addListener('interstitialAdLoaded', () => { interReady = true; interLoading = false; });
         A.addListener('interstitialAdFailedToLoad', () => { interReady = false; interLoading = false; });
-        A.addListener('interstitialAdDismissed', () => { interReady = false; setTimeout(prepareInterstitial, 1200); });
-        A.addListener('interstitialAdFailedToShow', () => { interReady = false; setTimeout(prepareInterstitial, 1200); });
+        A.addListener('interstitialAdDismissed', () => {
+          interReady = false;
+          if (pendingInter) { const r = pendingInter; pendingInter = null; r(true); }   // reklam izlendi → akışa devam
+          setTimeout(prepareInterstitial, 1200);
+        });
+        A.addListener('interstitialAdFailedToShow', () => {
+          interReady = false;
+          if (pendingInter) { const r = pendingInter; pendingInter = null; r(false); }  // gösterilemedi → kullanıcıyı bekletme
+          setTimeout(prepareInterstitial, 1200);
+        });
 
         A.addListener('onRewardedVideoAdLoaded', () => { rewReady = true; rewLoading = false; });
         A.addListener('onRewardedVideoAdFailedToLoad', () => { rewReady = false; rewLoading = false; });
@@ -93,14 +106,17 @@ window.AkisAds = (function () {
       } catch (e) {}
 
       prepareInterstitial();
-      prepareRewarded();
+      // NOT: rewarded artık kullanılmıyor (seans başlatma interstitial'a geçti) → boşuna istek atma.
     } catch (e) { log('init hata', e); }
   }
 
   // ---------- Interstitial ----------
   async function prepareInterstitial() {
-    if (!native() || interReady || interLoading || !adsActive()) return;
-    interLoading = true;
+    if (!native() || interReady || !adsActive()) return;
+    // ÖNEMLİ: yükleme ne "loaded" ne "failed" olayı üretmezse (ağ kopması vb.) interLoading
+    // sonsuza kadar true kalıp SONRAKİ TÜM reklamları engelliyordu → 30 sn sonra yeniden dene.
+    if (interLoading && (Date.now() - interLoadingSince) < LOAD_STALL_MS) return;
+    interLoading = true; interLoadingSince = Date.now();
     try { await admob().prepareInterstitial({ adId: adId('interstitial'), isTesting: USE_TEST }); }
     catch (e) { interLoading = false; }
   }
@@ -134,10 +150,53 @@ window.AkisAds = (function () {
     });
   }
 
+  // ---------- Seans başlatma reklamı (SORMADAN, tam ekran) ----------
+  // "Yükleniyor" perdesini aç/kapa (index.html'deki #ad-wait). Yoksa sessizce geçer.
+  function waitUI(on) {
+    try { const el = document.getElementById('ad-wait'); if (el) el.classList.toggle('hidden', !on); } catch (e) {}
+  }
+
+  /* Reklamı GÖSTER, kapanınca çöz. Hazır değilse WAIT_MS kadar bekler (perdeyle),
+     yine gelmezse kullanıcıyı BEKLETMEDEN devam eder (AdMob: reklam uygulamayı kilitlememeli).
+     Promise<boolean> — true = reklam gösterildi. */
+  function showInterstitialAwait() {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (v) => { if (done) return; done = true; pendingInter = null; waitUI(false); resolve(v); };
+
+      if (!adsActive() || !native()) { finish(false); return; }
+      if (Date.now() - lastInterstitial < MIN_GAP) { finish(false); return; }   // arka arkaya reklam yok
+
+      const doShow = () => {
+        waitUI(false);
+        lastInterstitial = Date.now();
+        pendingInter = finish;                                   // Dismissed/FailedToShow olayı çözecek
+        const guard = setTimeout(() => finish(true), 45000);      // reklam kapanmazsa kilitlenme
+        try {
+          admob().showInterstitial()
+            .then(() => clearTimeout(guard))
+            .catch(() => { clearTimeout(guard); finish(false); });
+        } catch (e) { clearTimeout(guard); finish(false); }
+      };
+
+      if (interReady) { doShow(); return; }
+
+      // hazır değil → yüklemeyi tetikle ve kısa süre bekle (kaçan gösterimleri kurtarır)
+      prepareInterstitial();
+      waitUI(true);
+      const t0 = Date.now();
+      const iv = setInterval(() => {
+        if (done) { clearInterval(iv); return; }
+        if (interReady) { clearInterval(iv); doShow(); return; }
+        if (Date.now() - t0 > WAIT_MS) { clearInterval(iv); finish(false); }
+      }, 200);
+    });
+  }
+
   // ---------- Genel API (yerleşimler) ----------
-  function onAppOpen() { showInterstitial(); }                 // açılış reklamı (hazırsa)
-  function onSessionStart() { return showRewardedToStart(); }  // "başlamak için reklam izle"
-  function onBreakStart() { showInterstitial(); }              // molaya geçerken reklam
+  function onAppOpen() { showInterstitial(); }                    // açılış reklamı (hazırsa)
+  function onSessionStart() { return showInterstitialAwait(); }   // ders başlat → reklam → bitince başlar
+  function onBreakStart() { showInterstitial(); }                 // molaya geçerken reklam
 
   return { init, setPremium, isPremiumNow, inGrace, graceDaysLeft, adsActive, onAppOpen, onSessionStart, onBreakStart };
 })();

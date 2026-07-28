@@ -354,3 +354,18 @@ input[type=range]:disabled{opacity:.4}
   .home-body,.stats-body{padding-top:4px;gap:12px}
   .modal-card{max-height:90vh}
 }
+
+/* ===== Reklam yükleniyor perdesi (seans başlatmadan önce kısa bekleme) ===== */
+.ad-wait{
+  position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
+  background:rgba(3,6,10,.72);backdrop-filter:blur(2px);
+}
+.ad-wait.hidden{display:none}
+.ad-wait-box{display:flex;flex-direction:column;align-items:center;gap:14px}
+.ad-wait-box p{margin:0;color:var(--muted);font-size:14px;letter-spacing:.2px}
+.ad-spin{
+  width:34px;height:34px;border-radius:50%;
+  border:3px solid rgba(255,255,255,.16);border-top-color:var(--accent,#f4cd76);
+  animation:ad-spin .8s linear infinite;
+}
+@keyframes ad-spin{to{transform:rotate(360deg)}}
