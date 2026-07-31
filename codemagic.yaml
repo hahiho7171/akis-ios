@@ -49,18 +49,27 @@ workflows:
       - name: iOS imzalama dosyalarını oluştur/al (sertifika + profil)
         script: |
           keychain initialize
-          # Apple 3-cert limiti tuzağı: EN YENİ 1 hariç dağıtım sertifikalarını sil (her build taze üretir).
+          # 🚨 Apple dağıtım sertifikası hesap-geneli ve LİMİTLİ (bireysel hesapta 2).
+          # 2026-07-31: bu adım iki kez üst üste patladı. SEBEP: aşağıdaki temizlik
+          # `certificates list --certificate-type DISTRIBUTION` ile listeliyordu; o bayrak
+          # boş/hatalı dönünce hiçbir sertifika SİLİNMİYOR, ardından `--create` limite
+          # takılıp (409) adım düşüyordu. Sipling'in çalışan yaml'ındaki yöntem alındı:
+          # TÜM sertifikaları listele → jq ile DISTRIBUTION olanları süz → en yeni 1 hariç sil.
+          # Loglu, çünkü Codemagic API'si adım günlüğünü dışarı vermiyor.
           set +e
-          for CT in DISTRIBUTION IOS_DISTRIBUTION; do
-            app-store-connect certificates list --certificate-type $CT --json 2>/dev/null \
-              | jq -r 'sort_by(.attributes.expirationDate)|reverse|.[1:]|.[].id' 2>/dev/null \
-              | while read -r cid; do [ -n "$cid" ] && app-store-connect certificates delete "$cid" --yes </dev/null 2>/dev/null; done
+          app-store-connect certificates list --json > /tmp/certs.json 2>/tmp/certs_err.txt || cat /tmp/certs_err.txt
+          echo "=== Mevcut sertifikalar ==="
+          jq -r '.[] | "\(.id) \(.attributes.certificateType) exp=\(.attributes.expirationDate)"' /tmp/certs.json 2>/dev/null || echo "(jq parse edemedi)"
+          for cid in $(jq -r '[.[]|select(.attributes.certificateType|test("DISTRIBUTION"))]|sort_by(.attributes.expirationDate)|reverse|.[1:]|.[].id' /tmp/certs.json 2>/dev/null); do
+            echo "siliniyor: $cid"
+            app-store-connect certificates delete "$cid" && echo "silindi $cid" || echo "SILINEMEDI $cid"
           done
-          app-store-connect profiles list --json 2>/dev/null \
-            | jq -r '.[]|select(.attributes.name|test("asimgokcek|Akis|akis"))|.id' 2>/dev/null \
-            | while read -r pid; do [ -n "$pid" ] && app-store-connect profiles delete "$pid" --yes </dev/null 2>/dev/null; done
+          # Akış profillerini sil (izole — diğer uygulamalara dokunma)
+          for pid in $(app-store-connect profiles list --json 2>/dev/null | jq -r '.[]|select(.attributes.name|test("Akis|akis|com\\.asimgokcek\\.akis"))|.id' 2>/dev/null); do
+            app-store-connect profiles delete "$pid" && echo "profil silindi $pid"
+          done
           set -e
-          echo "Imza temizligi denendi (hatalar yok sayildi)."
+          echo "Imza temizligi bitti."
           openssl genrsa -out /tmp/cert_key.pem 2048
           app-store-connect fetch-signing-files "com.asimgokcek.akis" \
             --type IOS_APP_STORE \
