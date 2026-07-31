@@ -220,6 +220,7 @@
     hideFlow(); closeBreakSheet(); toggleDrawer(false);
     refreshPondMini();
     show('view-home');
+    maybeAskRating();          // birkaç seans biriktiyse bir kez puan sor (ana ekrana döndükten sonra)
   }
 
   function applyPhaseVisual(){ pushState(); }
@@ -411,6 +412,91 @@
     setInterval(refreshPremiumUI, 30000);  // muafiyet bitince "reklamsız ol" düğmesi kendiliğinden çıksın
   }
 
+  // ========== PUANLA / PAYLAŞ / TANITIM ==========
+  const PKG='com.asimgokcek.akis';
+  const STORE_URL='https://play.google.com/store/apps/details?id='+PKG;
+  const TOUR_KEY='akis.tour.v1';
+  const RATE_KEY='akis.rateAsked.v1';
+  const RATE_AFTER=5;                    // bu kadar seans bitince bir kez puan sorulur
+
+  function isNative(){ try{ return !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()); }catch(e){ return false; } }
+
+  // Mağaza sayfası: önce market:// (Play uygulamasını açar), açılmazsa https adresi.
+  function openStore(){
+    try{ localStorage.setItem(RATE_KEY,'1'); }catch(e){}
+    if(isNative()){
+      let acildi=false;
+      const to=setTimeout(()=>{ if(!acildi) try{ window.open(STORE_URL,'_blank'); }catch(e){} }, 900);
+      try{ window.location.href='market://details?id='+PKG; acildi=true; }catch(e){ clearTimeout(to); }
+      setTimeout(()=>clearTimeout(to), 2500);
+      return;
+    }
+    try{ window.open(STORE_URL,'_blank'); }catch(e){}
+  }
+
+  // Paylaş: Capacitor Share → Web Share → panoya kopyala (hepsi başarısızsa sessiz).
+  async function shareApp(){
+    const metin=t('share_text')+' '+STORE_URL;
+    try{
+      const Share = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Share;
+      if(Share && Share.share){ await Share.share({title:'Akış', text:t('share_text'), url:STORE_URL}); return; }
+    }catch(e){ return; }                                  // kullanıcı vazgeçti → sessiz
+    try{ if(navigator.share){ await navigator.share({title:'Akış', text:t('share_text'), url:STORE_URL}); return; } }catch(e){ return; }
+    try{ await navigator.clipboard.writeText(metin); toast(t('link_copied')); }catch(e){}
+  }
+
+  // ---- tanıtım turu ----
+  const TOUR=[
+    {emoji:'🌊', t:'tour_t1', b:'tour_b1'},
+    {emoji:'⏱️', t:'tour_t2', b:'tour_b2'},
+    {emoji:'🎧', t:'tour_t3', b:'tour_b3'},
+    {emoji:'🌳', t:'tour_t4', b:'tour_b4'}
+  ];
+  let tourStep=0;
+  function tourNeeded(){ try{ return localStorage.getItem(TOUR_KEY)!=='1'; }catch(e){ return false; } }
+  function startTour(again){
+    tourStep=0;
+    if(!again){ try{ localStorage.setItem(TOUR_KEY,'1'); }catch(e){} }   // bir kez göster
+    drawTour();
+  }
+  function drawTour(){
+    const s=TOUR[tourStep], son=tourStep===TOUR.length-1;
+    const dots=TOUR.map((_,i)=>`<i class="${i===tourStep?'on':''}"></i>`).join('');
+    const acts=[];
+    if(tourStep>0) acts.push({label:t('tour_back'), cls:'ghost', fn:()=>{ tourStep--; drawTour(); }});
+    else acts.push({label:t('tour_skip'), cls:'ghost'});
+    acts.push({label: son?t('tour_done'):t('tour_next'), cls:'primary',
+               fn: son?null:()=>{ tourStep++; drawTour(); }});
+    openModal({
+      title: t(s.t),
+      bodyHTML: `<div class="tour-emoji">${s.emoji}</div><p>${esc(t(s.b))}</p><div class="tour-dots">${dots}</div>`,
+      actions: acts
+    });
+  }
+
+  // Birkaç seans sonra bir kez "puan verir misin?" — "hayır" derse bir daha sorulmaz.
+  function maybeAskRating(){
+    if(!isNative()) return;
+    try{ if(localStorage.getItem(RATE_KEY)==='1') return; }catch(e){ return; }
+    if(AkisStats.itemCount() < RATE_AFTER) return;
+    setTimeout(()=>{
+      openModal({
+        title: t('rate_ask_title'),
+        bodyHTML: `<p>${esc(t('rate_ask_body'))}</p>`,
+        actions: [
+          {label:t('rate_no'), cls:'ghost', fn:()=>{ try{ localStorage.setItem(RATE_KEY,'1'); }catch(e){} }},
+          {label:t('rate_yes'), cls:'primary', fn:openStore}
+        ]
+      });
+    }, 1200);
+  }
+
+  function initSupport(){
+    const bt=$('#btn-tour');  if(bt) bt.addEventListener('click', ()=>startTour(true));
+    const br=$('#btn-rate');  if(br) br.addEventListener('click', openStore);
+    const bs=$('#btn-share'); if(bs) bs.addEventListener('click', shareApp);
+  }
+
   // oturum listesi HTML'i
   function sessionListHTML(list){
     if(!list || !list.length) return `<div class="empty-row">${esc(t('no_sessions'))}</div>`;
@@ -595,13 +681,14 @@
   // ========== başlat ==========
   function init(){
     AkisVisual.init($('#visual-canvas'));
-    initHome(); initFocus(); initSound(); initStats(); initLang(); initModal(); initBackButton(); initFocusGestures(); initPremium();
+    initHome(); initFocus(); initSound(); initStats(); initLang(); initModal(); initBackButton(); initFocusGestures(); initPremium(); initSupport();
     AkisI18n.apply();
     AkisI18n.onChange(onLangChange);
     refreshBreakChips();
     if(window.AkisNotify) AkisNotify.init();
     if(window.AkisAds){ AkisAds.init(window.AkisPremium ? AkisPremium.isPremium() : false); refreshPremiumUI(); setTimeout(()=>{ try{ AkisAds.onAppOpen(); }catch(e){} refreshPremiumUI(); }, 3000); }  // açılış reklamı (hazırsa) + CTA tazele
     window.addEventListener('orientationchange', ()=>{ setTimeout(()=>AkisVisual.resize(), 250); });
+    if(tourNeeded()) setTimeout(()=>startTour(), 700);   // ilk açılış tanıtımı
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
   else init();

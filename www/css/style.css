@@ -330,6 +330,15 @@ input[type=range]:disabled{opacity:.4}
 .section-btn svg{width:20px;height:20px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .section-btn:active{transform:scale(.99);background:var(--card-2)}
 
+/* --- Nasıl kullanılır / puanla / paylaş bloğu --- */
+.support-block{display:flex;flex-direction:column;gap:8px;margin:22px 0 6px}
+
+/* --- Tanıtım turu (ilk açılış) --- */
+.tour-dots{display:flex;justify-content:center;gap:6px;margin:14px 0 2px}
+.tour-dots i{width:7px;height:7px;border-radius:99px;background:var(--line);display:block;transition:width .25s}
+.tour-dots i.on{background:var(--accent);width:20px}
+.tour-emoji{font-size:38px;line-height:1;text-align:center;margin:2px 0 10px}
+
 /* --- Haftalık grafik: tıklanabilir + ipucu --- */
 .week-bar{cursor:pointer;border-radius:8px;transition:background .15s}
 .week-bar:active{background:rgba(255,255,255,.05)}
