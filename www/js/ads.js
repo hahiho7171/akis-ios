@@ -36,11 +36,11 @@ window.AkisAds = (function () {
   function graceDaysLeft() { if (!inGrace()) return 0; return Math.ceil((GRACE_MS - (Date.now() - firstRun)) / (24 * 60 * 60 * 1000)); }
   function adsActive() { return !isPremium && firstRun > 0 && !inGrace(); }   // premium değil VE (init olmuş) VE muafiyet bitti
 
-  // Arka arkaya reklamı önle (AdMob "disruptive ads") — en az 20 sn arayla.
-  // NOT: eskiden 60 sn idi; açılış reklamından sonra hemen seans başlatılınca seans reklamı
-  // sessizce atlanıyordu (gelir kaybı). 20 sn hem üst üste binmeyi engelliyor hem seansı yemiyor.
+  // Arka arkaya reklamı önle (AdMob "disruptive ads") — en az 60 sn arayla.
+  // NOT: 2026-07-28'de açılış reklamı seans reklamını yediği için 20 sn'ye indirilmişti;
+  // 2026-08-08'de açılış reklamı tamamen kaldırıldı (politika) → 60 sn'ye geri dönüldü.
   let lastInterstitial = 0;
-  const MIN_GAP = 20 * 1000;
+  const MIN_GAP = 60 * 1000;
   const WAIT_MS = 4000;   // reklam hazır değilse en fazla bu kadar bekle, sonra kullanıcıyı bekletme
 
   // ---- durum ----
@@ -56,7 +56,7 @@ window.AkisAds = (function () {
   // ---------- init ----------
   async function init(premiumInitial) {
     isPremium = !!premiumInitial;
-    // kurulum tarihini kaydet (ilk 3 gün muafiyet sayacı)
+    // kurulum tarihini kaydet (ilk 1 gün muafiyet sayacı)
     try {
       firstRun = +localStorage.getItem('akis_first_run') || 0;
       if (!firstRun) { firstRun = Date.now(); localStorage.setItem('akis_first_run', String(firstRun)); }
@@ -124,8 +124,8 @@ window.AkisAds = (function () {
     if (!adsActive() || !native()) return;
     if (Date.now() - lastInterstitial < MIN_GAP) return;      // sıklık sınırı
     if (!interReady) { prepareInterstitial(); return; }        // hazır değilse bu seferlik atla
-    lastInterstitial = Date.now();
-    try { await admob().showInterstitial(); } catch (e) {}
+    try { await admob().showInterstitial(); lastInterstitial = Date.now(); }   // sayaç yalnız BAŞARILI gösterimde (başarısızsa sonraki reklamı bloklamasın)
+    catch (e) {}
   }
 
   // ---------- Rewarded (izle-başla) ----------
@@ -161,22 +161,21 @@ window.AkisAds = (function () {
      Promise<boolean> — true = reklam gösterildi. */
   function showInterstitialAwait() {
     return new Promise((resolve) => {
-      let done = false;
-      const finish = (v) => { if (done) return; done = true; pendingInter = null; waitUI(false); resolve(v); };
+      let done = false, guard = null;
+      const finish = (v) => { if (done) return; done = true; if (guard) { clearTimeout(guard); guard = null; } pendingInter = null; waitUI(false); resolve(v); };
 
       if (!adsActive() || !native()) { finish(false); return; }
       if (Date.now() - lastInterstitial < MIN_GAP) { finish(false); return; }   // arka arkaya reklam yok
 
       const doShow = () => {
         waitUI(false);
-        lastInterstitial = Date.now();
         pendingInter = finish;                                   // Dismissed/FailedToShow olayı çözecek
-        const guard = setTimeout(() => finish(true), 45000);      // reklam kapanmazsa kilitlenme
+        guard = setTimeout(() => finish(true), 45000);            // dismissed olayı hiç gelmezse kilitlenme sigortası (finish temizler)
         try {
           admob().showInterstitial()
-            .then(() => clearTimeout(guard))
-            .catch(() => { clearTimeout(guard); finish(false); });
-        } catch (e) { clearTimeout(guard); finish(false); }
+            .then(() => { lastInterstitial = Date.now(); })       // sayaç yalnız başarılı gösterimde; guard finish'e kadar YAŞAR
+            .catch(() => { finish(false); });
+        } catch (e) { finish(false); }
       };
 
       if (interReady) { doShow(); return; }
@@ -194,9 +193,18 @@ window.AkisAds = (function () {
   }
 
   // ---------- Genel API (yerleşimler) ----------
-  function onAppOpen() { showInterstitial(); }                    // açılış reklamı (hazırsa)
-  function onSessionStart() { return showInterstitialAwait(); }   // ders başlat → reklam → bitince başlar
-  function onBreakStart() { showInterstitial(); }                 // molaya geçerken reklam
+  function onAppOpen() { /* BOŞ (2026-08-08): AdMob politikası uygulama açılışında interstitial'ı yasaklıyor
+     (https://support.google.com/admob/answer/6201362). Eklentiye App Open formatı gelirse burada kullanılır. */ }
+  /* YERLEŞİM KURALI (kullanıcı kararı 2026-08-08):
+     - Seans BAŞLATIRKEN reklam YOK (odak anı kutsal).
+     - Çalışma bitip MOLAYA girerken → onWorkEnd (perdeli, beklemeli).
+     - Moladan DERSE dönerken → onBreakEnd (perdeli, beklemeli).
+     MIN_GAP 60 sn iki geçişin üst üste binmesini engeller (ör. 1 dk'lık molada tek reklam çıkar). */
+  function onWorkEnd()  { return showInterstitialAwait(); }
+  function onBreakEnd() { return showInterstitialAwait(); }
+  /* Seanstan GERİ tuşuyla erken çıkış → ana ekrana dönmeden reklam (kullanıcı kararı 2026-08-08).
+     NOT: Bu "uygulamadan çıkış" DEĞİL (o yasak) — uygulama İÇİ ekran geçişi; AdMob'a uygun. */
+  function onSessionExit() { return showInterstitialAwait(); }
 
-  return { init, setPremium, isPremiumNow, inGrace, graceDaysLeft, adsActive, onAppOpen, onSessionStart, onBreakStart };
+  return { init, setPremium, isPremiumNow, inGrace, graceDaysLeft, adsActive, onAppOpen, onWorkEnd, onBreakEnd, onSessionExit };
 })();

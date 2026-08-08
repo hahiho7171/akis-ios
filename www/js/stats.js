@@ -36,7 +36,7 @@ const AkisStats = (() => {
 
   /* Tamamlanan/kesilen odak seansını kaydet. name = oturum adı (opsiyonel).
      Dönen: kazanılan ağaç öğesi (ödül balonu için) veya null. */
-  function recordFocus(minutes, name){
+  function recordFocus(minutes, name, pale){
     minutes=Math.round(minutes);
     if(minutes<1) return null;
     const t=today();
@@ -48,10 +48,11 @@ const AkisStats = (() => {
     // gece + 3+ seri → ateşböceği bonusu (ormanda gece ışıltısı)
     const h=new Date().getHours();
     const isNight = h>=20 || h<6;
-    if(isNight && streak()>=3) item.firefly=true;
+    if(isNight && streak()>=3 && !pale) item.firefly=true;
+    if(pale) item.pale=true;               // "Derin Odak" bozuldu → ağaç soluk dikilir (ceza yok, görsel fark var)
     data.items.push({
       type:item.type, min:minutes, date:t,
-      name:(name||'').slice(0,40), ts:Date.now(), firefly:!!item.firefly
+      name:(name||'').slice(0,40), ts:Date.now(), firefly:!!item.firefly, pale:!!pale
     });
     save();
     return item;
@@ -60,16 +61,74 @@ const AkisStats = (() => {
   function todayMinutes(){ const s=data.sessions[today()]; return s?s.minutes:0; }
   function totalHours(){ return (data.totalMinutes/60); }
 
+  function aktifGun(s){ return !!(s && (s.minutes>0 || s.frozen)); }   // dondurulmuş gün seriyi KIRMAZ
   function streak(){
     let n=0; const d=new Date();
     // bugün 0 ise dünden geriye bak (bugünü henüz kırmasın)
-    if(!(data.sessions[dstr(d)]&&data.sessions[dstr(d)].minutes>0)) d.setDate(d.getDate()-1);
+    if(!aktifGun(data.sessions[dstr(d)])) d.setDate(d.getDate()-1);
     while(true){
       const s=data.sessions[dstr(d)];
-      if(s && s.minutes>0){ n++; d.setDate(d.getDate()-1); }
+      if(aktifGun(s)){ if(s.minutes>0) n++; d.setDate(d.getDate()-1); }
       else break;
     }
     return n;
+  }
+
+  /* ---- SERİ DONDURMA: haftada 1 hak (yenilenir). Dün boşsa ve önceki gün doluysa hakkı otomatik kullan. ---- */
+  function haftaKey(d){ const x=new Date(d); x.setDate(x.getDate()-x.getDay()); return dstr(x); }
+  function applyFreeze(){
+    try{
+      // haftalık yenileme (en fazla 1 hakka tamamla; başlangıç stoku 2 korunur)
+      const hk=haftaKey(new Date());
+      if(data.lastFreezeWeek!==hk){ data.lastFreezeWeek=hk; if((data.streakFreezes||0)<1) data.streakFreezes=1; save(); }
+      const dun=new Date(); dun.setDate(dun.getDate()-1);
+      const evvel=new Date(); evvel.setDate(evvel.getDate()-2);
+      const sDun=data.sessions[dstr(dun)], sEvvel=data.sessions[dstr(evvel)];
+      if(!aktifGun(sDun) && aktifGun(sEvvel) && (data.streakFreezes||0)>0){
+        data.sessions[dstr(dun)]={minutes:0,count:0,frozen:true};
+        data.streakFreezes--; save();
+        return true;   // hak kullanıldı (istenirse arayüz bilgi verir)
+      }
+    }catch(e){}
+    return false;
+  }
+  function freezesLeft(){ return data.streakFreezes||0; }
+
+  /* ---- BAŞARIMLAR (rozetler) — localStorage verisinden hesaplanır, ayrı kayıt gerektirmez ---- */
+  function badges(){
+    const its=data.items, tot=data.totalMinutes, st=streak();
+    const saat=(h)=>its.some(it=>{ if(!it.ts) return false; const x=new Date(it.ts).getHours(); return h(x); });
+    return [
+      {id:'b_first', emoji:'🌱', on: its.length>=1},
+      {id:'b_s3',    emoji:'🔥', on: st>=3},
+      {id:'b_s7',    emoji:'🔥', on: st>=7},
+      {id:'b_s30',   emoji:'🏆', on: st>=30},
+      {id:'b_h10',   emoji:'⏳', on: tot>=600},
+      {id:'b_h50',   emoji:'⌛', on: tot>=3000},
+      {id:'b_h100',  emoji:'💎', on: tot>=6000},
+      {id:'b_t25',   emoji:'🌲', on: its.length>=25},
+      {id:'b_t100',  emoji:'🌳', on: its.length>=100},
+      {id:'b_night', emoji:'🌙', on: saat(x=>x>=22||x<4)},
+      {id:'b_early', emoji:'🌅', on: saat(x=>x>=5&&x<8)},
+      {id:'b_deep',  emoji:'🚀', on: its.some(it=>(it.min||0)>=52)}
+    ];
+  }
+
+  /* ---- YEDEK: dışa/içe aktarma (hesapsız felsefe — veri kullanıcının elinde) ---- */
+  function exportData(){
+    return JSON.stringify({app:'akis', v:1, exported:new Date().toISOString(), stats:data});
+  }
+  function importData(objOrStr){
+    try{
+      const o = typeof objOrStr==='string' ? JSON.parse(objOrStr) : objOrStr;
+      const s = (o && o.app==='akis' && o.stats) ? o.stats : (o && o.sessions ? o : null);
+      if(!s || typeof s.sessions!=='object' || !Array.isArray(s.items)) return false;
+      data = { sessions:s.sessions||{}, items:s.items||[],
+               totalMinutes:+s.totalMinutes||0, streakFreezes:(s.streakFreezes!=null?+s.streakFreezes:2),
+               lastFreezeWeek:s.lastFreezeWeek };
+      save();
+      return true;
+    }catch(e){ return false; }
   }
 
   function last7(locale){
@@ -97,7 +156,10 @@ const AkisStats = (() => {
   function itemCount(){ return data.items.length; }
   function reset(){ data={sessions:{},items:[],totalMinutes:0,streakFreezes:2}; save(); }
 
+  applyFreeze();   // açılışta: dün kaçtıysa ve hak varsa seriyi otomatik koru
+
   return { recordFocus, todayMinutes, totalHours, streak, last7,
            sessionsForDate, todaySessions, dayMinutes,
-           items, itemCount, itemForMinutes, reset, today };
+           items, itemCount, itemForMinutes, reset, today,
+           badges, freezesLeft, exportData, importData, applyFreeze };
 })();

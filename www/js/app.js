@@ -6,8 +6,25 @@
   // ---- ayarlar (kalıcı) ----
   const settings = Object.assign({
     mode:'pomodoro', workMin:30, breakMin:5, visual:'hourglass',
-    background:'none', mix:{}, music:'off', musicVol:40
+    background:'none', mix:{}, music:'off', musicVol:40,
+    deepFocus:false          // "Derin Odak": uygulamadan 30sn+ ayrılırsan ağaç soluk dikilir (opsiyonel)
   }, load());
+
+  // Seans-sonu + kalıcı bildirimleri zamanlayıcı durumuna eşitle (native'de)
+  function syncNotifs(){ try{ if(window.AkisNotify && AkisNotify.syncSession) AkisNotify.syncSession(AkisTimer.snapshot()); }catch(e){} }
+
+  // ---- Derin Odak takibi: seans sırasında uygulamadan uzun ayrılma → soluk ağaç ----
+  let awayAt=0, paleFlag=false;
+  const PALE_AFTER_MS=30*1000;
+  document.addEventListener('visibilitychange', ()=>{
+    if(!settings.deepFocus) return;
+    if(document.hidden){
+      if(AkisTimer.running && AkisTimer.phase==='work') awayAt=Date.now();
+    }else{
+      if(awayAt && Date.now()-awayAt>PALE_AFTER_MS) paleFlag=true;
+      awayAt=0;
+    }
+  });
   if(!settings.mix || typeof settings.mix!=='object') settings.mix={};
   function load(){ try{ return JSON.parse(localStorage.getItem(SKEY))||{}; }catch(e){ return {}; } }
   function saveSettings(){ try{ localStorage.setItem(SKEY, JSON.stringify(settings)); }catch(e){} }
@@ -48,7 +65,7 @@
       });
     });
     document.querySelectorAll('#visual-picker .chip').forEach(ch=>{
-      if(ch.dataset.visual===settings.visual) ch.classList.add('active');
+      ch.classList.toggle('active', ch.dataset.visual===settings.visual);   // toggle: HTML'deki varsayılan 'active' kalıntısıyla İKİ çip seçili görünmesin
       ch.addEventListener('click', ()=>{
         document.querySelectorAll('#visual-picker .chip').forEach(x=>x.classList.remove('active'));
         ch.classList.add('active'); settings.visual=ch.dataset.visual; saveSettings();
@@ -62,9 +79,25 @@
       });
     });
     $('#task-input').addEventListener('input', e=> task=e.target.value.trim());
-    $('#btn-start').addEventListener('click', async ()=>{
-      // Ücretsiz kullanıcı: "başlamak için reklam izle" (rewarded). Premium/web → hemen başlar.
-      try{ if(window.AkisAds) await AkisAds.onSessionStart(); }catch(e){}
+    // Derin Odak anahtarı
+    const df=$('#deep-focus-toggle');
+    if(df){
+      df.classList.toggle('active', !!settings.deepFocus);
+      df.addEventListener('click', ()=>{
+        settings.deepFocus=!settings.deepFocus; saveSettings();
+        df.classList.toggle('active', settings.deepFocus);
+        if(settings.deepFocus) toast(t('deep_focus_hint'));
+      });
+    }
+    // Arka plan çiplerine video poster görselleri (metin çipi → görsel kart)
+    document.querySelectorAll('#bg-chips .chip').forEach(ch=>{
+      const bg=ch.dataset.bg;
+      if(bg && bg!=='none'){ ch.classList.add('bg-card'); ch.style.backgroundImage=`url('assets/video/posters/${bg}.jpg')`; }
+      else ch.classList.add('bg-card','bg-card-none');
+    });
+    $('#btn-start').addEventListener('click', ()=>{
+      // REKLAM YOK (kullanıcı kararı 2026-08-08): odaklanma anı kutsal. Reklam yerleşimi:
+      // çalışma bitip MOLAYA girerken + moladan DERSE dönerken (doğal geçiş noktaları).
       startSession();
     });
     $('#btn-stats').addEventListener('click', openStats);
@@ -85,6 +118,9 @@
   }
   function startSession(){
     committedWork=false;
+    paleFlag=false; awayAt=0;
+    // Ana ekrandaki orman canvas'ı seans boyunca arkada 60fps çizmesin (pil) — çıkışta refreshPondMini yeniden bağlar
+    try{ const cv=$('#pond-mini'); if(cv && cv._mounted){ AkisGarden.unmount(cv); cv._mounted=false; } }catch(e){}
     AkisTimer.configure(buildCfg());
     $('#focus-task').textContent = task || '';
     AkisVisual.setType(settings.visual);
@@ -100,22 +136,35 @@
     setPlayIcon(true);
     requestWakeLock();
     showChrome();
+    syncNotifs();
+    // ilk seansta bir kez: "görseli değiştirmek için kaydır" ipucu
+    try{ if(!localStorage.getItem('akis.swipeHint')){ toast(t('swipe_hint')); localStorage.setItem('akis.swipeHint','1'); } }catch(e){}
   }
 
   // ========== FOCUS ==========
   function initFocus(){
     $('#btn-back').addEventListener('click', requestExit);
     $('#btn-playpause').addEventListener('click', ()=>{
+      // Faz süresi dolmuş ve karar bekleniyorsa: yeniden başlatma (her basışta çan çalıyordu) → kararı sor
+      const sn=AkisTimer.snapshot();
+      if(!AkisTimer.running && !sn.countUp && sn.remaining<=0 && sn.phase==='work'){ showFlow(); return; }
       AkisTimer.toggle();
       const running=AkisTimer.running; setPlayIcon(running);
       const v=$('#bg-video');
       if(running){ AkisAudio.resumeAll(); AkisAudio.resumeMusic(); if(v.getAttribute('src')) v.play().catch(()=>{}); requestWakeLock(); }
       else { AkisAudio.suspendAll(); AkisAudio.pauseMusic(); try{v.pause();}catch(e){} releaseWakeLock(); }
+      syncNotifs();   // durdur/başlat → seans-sonu bildirimi eşitle
     });
     $('#btn-fullscreen').addEventListener('click', toggleFullscreen);
     $('#btn-sound').addEventListener('click', ()=>toggleDrawer(true));
-    $('#btn-extend').addEventListener('click', ()=>{ hideFlow(); AkisTimer.extend(5*60); setPlayIcon(true); });
-    $('#btn-tobreak').addEventListener('click', ()=>{ hideFlow(); commitWork(); AkisTimer.goNext(true); applyPhaseVisual(); setPlayIcon(true); });
+    $('#btn-extend').addEventListener('click', ()=>{ hideFlow(); AkisTimer.extend(5*60); setPlayIcon(true); syncNotifs(); });
+    $('#btn-tobreak').addEventListener('click', async ()=>{
+      hideFlow(); commitWork();
+      // ÇALIŞMA BİTTİ → MOLAYA GİRERKEN reklam (perdeli bekleme; kullanıcı kararı 2026-08-08)
+      try{ if(window.AkisAds) await AkisAds.onWorkEnd(); }catch(e){}
+      if(!$('#view-focus').classList.contains('active')) return;   // reklam sürerken çıkıldıysa dur
+      AkisTimer.goNext(true); applyPhaseVisual(); setPlayIcon(true);
+    });
 
     // Mola butonu → süre seçici
     $('#btn-break').addEventListener('click', openBreakSheet);
@@ -136,8 +185,9 @@
     AkisTimer.on('phaseEnd', onPhaseEnd);
     AkisTimer.on('phaseStart', (phase)=>{
       if(phase==='work') committedWork=false;
-      else { try{ if(window.AkisAds) AkisAds.onBreakStart(); }catch(e){} }  // molaya geçerken reklam
+      // NOT: molaya-giriş reklamı artık btn-tobreak/pickBreak içinde AWAIT ile gösteriliyor (çifte reklam olmasın)
       pushState();
+      syncNotifs();   // faz değişti → seans-sonu bildirimi + kalıcı bildirim tazele
     });
   }
 
@@ -147,11 +197,17 @@
     });
     $('#bs-min-lbl').textContent=t('dur_min',{n:customBreakMin});
   }
-  function openBreakSheet(){ refreshBreakChips(); $('#bs-custom-row').classList.add('hidden'); $('#break-sheet').classList.remove('hidden'); }
+  function openBreakSheet(){ hideFlow(); refreshBreakChips(); $('#bs-custom-row').classList.add('hidden'); $('#break-sheet').classList.remove('hidden'); }
   function closeBreakSheet(){ $('#break-sheet').classList.add('hidden'); }
-  function pickBreak(min){
+  async function pickBreak(min){
+    hideFlow();               // "Süre doldu" kartı açıksa kapat — molada bayat +5dk/Molaya geç kalmasın
     closeBreakSheet();
-    if(AkisTimer.phase==='work'){ commitWork(); }
+    if(AkisTimer.phase==='work'){
+      commitWork();
+      // ÇALIŞMADAN MOLAYA GİRERKEN reklam (Mola butonu yolu da aynı kurala uyar)
+      try{ if(window.AkisAds) await AkisAds.onWorkEnd(); }catch(e){}
+      if(!$('#view-focus').classList.contains('active')) return;
+    }
     AkisTimer.customBreak(min*60);
     applyPhaseVisual(); setPlayIcon(true);
     AkisAudio.resume(); AkisAudio.resumeMusic();
@@ -177,10 +233,12 @@
     chime(phase==='work');
     if(phase==='work'){
       showFlow();
+      setPlayIcon(false);      // sayaç durdu → duraklat ikonu asılı kalmasın
     }else{
-      // Mola bitti → YENİ DERSE geçmeden ÖNCE reklam. Sayaç reklamın arkasında akmasın diye
-      // reklam beklenir, kapandıktan sonra yeni faz başlatılır.
-      try{ if(window.AkisAds) await AkisAds.onSessionStart(); }catch(e){}
+      // MOLADAN DERSE DÖNERKEN reklam (kullanıcı kararı 2026-08-08). Sayaç reklamın arkasında
+      // akmasın diye reklam beklenir, kapandıktan sonra yeni faz başlatılır.
+      try{ if(window.AkisAds) await AkisAds.onBreakEnd(); }catch(e){}
+      if(!$('#view-focus').classList.contains('active')) return;   // reklam sürerken çıkıldıysa hayalet seans başlatma
       AkisTimer.goNext(true); applyPhaseVisual(); setPlayIcon(true);
     }
   }
@@ -191,9 +249,11 @@
     const mins=s.elapsed/60;
     if(mins>=1){
       committedWork=true;
-      const item=AkisStats.recordFocus(mins, task);
+      const item=AkisStats.recordFocus(mins, task, paleFlag);
+      paleFlag=false;
       if(item) showReward(item);
       refreshPondMini();
+      try{ if(window.AkisNotify) AkisNotify.onFocusDone(); }catch(e){}   // "bugün odaklanmadın" bildirimini yarına ötele
     }
   }
 
@@ -208,9 +268,13 @@
       ]
     });
   }
-  function doExit(){
+  async function doExit(){
     if(AkisTimer.phase==='work' && !committedWork) commitWork();
     AkisTimer.pause();
+    try{ if(window.AkisNotify && AkisNotify.clearSession) AkisNotify.clearSession(); }catch(e){}   // kalıcı + seans-sonu bildirimlerini kaldır
+    // ERKEN ÇIKIŞ REKLAMI (kullanıcı kararı 2026-08-08): seans beklemeden geri tuşuyla çıkılırsa
+    // ana ekrana dönmeden reklam göster (perdeli; süre kaydı YUKARIDA çoktan yapıldı, veri riski yok)
+    try{ if(window.AkisAds) await AkisAds.onSessionExit(); }catch(e){}
     AkisVisual.stop();
     AkisAudio.stopAll();
     applyBackground('none');
@@ -218,8 +282,8 @@
     exitFullscreen();
     releaseWakeLock();
     hideFlow(); closeBreakSheet(); toggleDrawer(false);
-    refreshPondMini();
     show('view-home');
+    refreshPondMini();   // ÖNCE ana ekrana geç, SONRA ormanı bağla (sıra önemli: refresh, view-home aktif değilse mount atlar)
     maybeAskRating();          // birkaç seans biriktiyse bir kez puan sor (ana ekrana döndükten sonra)
   }
 
@@ -353,11 +417,37 @@
   let rewardTO=null;
   function showReward(item){
     const box=$('#reward-toast'); if(!box) return;
-    $('#reward-emoji').textContent=item.firefly?'✨':item.emoji;
+    $('#reward-emoji').textContent=item.pale?'🥀':(item.firefly?'✨':item.emoji);
     $('#reward-title').textContent=t('reward_added',{label:t('item_'+item.type)});
-    $('#reward-sub').textContent=item.firefly?t('reward_night'):t('reward_done');
+    $('#reward-sub').textContent=item.pale?t('reward_pale'):(item.firefly?t('reward_night'):t('reward_done'));
     box.classList.add('show');
+    if(!item.pale) confettiBurst();          // kutlama: küçük konfeti patlaması (ödül anı boş kalmasın)
     clearTimeout(rewardTO); rewardTO=setTimeout(()=>box.classList.remove('show'), 2600);
+  }
+
+  /* ---- Kutlama konfetisi: kütüphanesiz, canvas üstüne 1.6 sn parçacık ---- */
+  function confettiBurst(){
+    try{
+      const cv=$('#visual-canvas'); if(!cv) return;
+      const r=cv.getBoundingClientRect();
+      const c=document.createElement('canvas');
+      c.width=r.width; c.height=r.height;
+      c.style.cssText=`position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:30`;
+      cv.parentElement.appendChild(c);
+      const x=c.getContext('2d');
+      const renkler=['#37CFE0','#F4CD76','#8FD99F','#3AA0F0','#ffd9a0'];
+      const P=[]; for(let i=0;i<44;i++){ const a=Math.random()*Math.PI*2, v=2+Math.random()*4;
+        P.push({x:c.width/2, y:c.height*0.62, vx:Math.cos(a)*v, vy:Math.sin(a)*v-3.2,
+                s:3+Math.random()*4, r:renkler[i%renkler.length], w:Math.random()*Math.PI}); }
+      let f=0;
+      (function adim(){
+        x.clearRect(0,0,c.width,c.height);
+        P.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vy+=0.16; p.w+=0.2;
+          x.save(); x.translate(p.x,p.y); x.rotate(p.w); x.globalAlpha=Math.max(0,1-f/96);
+          x.fillStyle=p.r; x.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.6); x.restore(); });
+        if(++f<96) requestAnimationFrame(adim); else c.remove();
+      })();
+    }catch(e){}
   }
 
   // ========== GENEL MODAL ==========
@@ -446,27 +536,35 @@
   }
 
   // ---- tanıtım turu ----
+  // Maskot "Damla": 〜 logosundan türeyen su damlası karakter (emoji yerine marka SVG'leri — her cihazda aynı görünür)
+  const MASKOT_GOVDE=(ic)=>`<svg viewBox="0 0 96 96" width="84" height="84" fill="none">
+    <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fe0ea"/><stop offset="1" stop-color="#2a9fd4"/></linearGradient></defs>
+    <path d="M48 8C34 30 22 44 22 60a26 26 0 0 0 52 0C74 44 62 30 48 8Z" fill="url(#mg)"/>
+    <ellipse cx="39" cy="56" rx="4" ry="5.6" fill="#08222e"/><ellipse cx="57" cy="56" rx="4" ry="5.6" fill="#08222e"/>
+    <circle cx="40.4" cy="54" r="1.5" fill="#eafcff"/><circle cx="58.4" cy="54" r="1.5" fill="#eafcff"/>
+    <path d="M40 68q8 6 16 0" stroke="#08222e" stroke-width="3" stroke-linecap="round"/>
+    <path d="M30 40q4-6 8-8" stroke="#bdf3fa" stroke-width="3" stroke-linecap="round" opacity=".7"/>${ic||''}</svg>`;
   const TOUR=[
-    {emoji:'🌊', t:'tour_t1', b:'tour_b1'},
-    {emoji:'⏱️', t:'tour_t2', b:'tour_b2'},
-    {emoji:'🎧', t:'tour_t3', b:'tour_b3'},
-    {emoji:'🌳', t:'tour_t4', b:'tour_b4'}
+    {emoji:MASKOT_GOVDE(''), t:'tour_t1', b:'tour_b1'},
+    {emoji:MASKOT_GOVDE('<g transform="translate(60,10)"><circle cx="14" cy="14" r="13" fill="#10151c" stroke="#f4cd76" stroke-width="2.5"/><path d="M14 7v7l5 3" stroke="#f4cd76" stroke-width="2.5" stroke-linecap="round"/></g>'), t:'tour_t2', b:'tour_b2'},
+    {emoji:MASKOT_GOVDE('<g transform="translate(58,8)" stroke="#f4cd76" stroke-width="2.5" fill="none" stroke-linecap="round"><path d="M4 18v-4a12 12 0 0 1 24 0v4"/><rect x="1" y="16" width="8" height="11" rx="3" fill="#f4cd76" stroke="none"/><rect x="23" y="16" width="8" height="11" rx="3" fill="#f4cd76" stroke="none"/></g>'), t:'tour_t3', b:'tour_b3'},
+    {emoji:MASKOT_GOVDE('<g transform="translate(62,6)"><path d="M12 2C6 12 2 17 2 23a10 10 0 0 0 20 0C22 17 18 12 12 2Z" fill="#4E9C68"/><rect x="10" y="26" width="4" height="8" rx="1.5" fill="#6B4A3A"/></g>'), t:'tour_t4', b:'tour_b4'}
   ];
   let tourStep=0;
   function tourNeeded(){ try{ return localStorage.getItem(TOUR_KEY)!=='1'; }catch(e){ return false; } }
   function startTour(again){
     tourStep=0;
-    if(!again){ try{ localStorage.setItem(TOUR_KEY,'1'); }catch(e){} }   // bir kez göster
     drawTour();
   }
+  function tourSeen(){ try{ localStorage.setItem(TOUR_KEY,'1'); }catch(e){} }   // bayrak SONDA/Geç'te yazılır — yarıda kapatan tur hakkını kaybetmesin
   function drawTour(){
     const s=TOUR[tourStep], son=tourStep===TOUR.length-1;
     const dots=TOUR.map((_,i)=>`<i class="${i===tourStep?'on':''}"></i>`).join('');
     const acts=[];
     if(tourStep>0) acts.push({label:t('tour_back'), cls:'ghost', fn:()=>{ tourStep--; drawTour(); }});
-    else acts.push({label:t('tour_skip'), cls:'ghost'});
+    else acts.push({label:t('tour_skip'), cls:'ghost', fn:tourSeen});
     acts.push({label: son?t('tour_done'):t('tour_next'), cls:'primary',
-               fn: son?null:()=>{ tourStep++; drawTour(); }});
+               fn: son?tourSeen:()=>{ tourStep++; drawTour(); }});
     openModal({
       title: t(s.t),
       bodyHTML: `<div class="tour-emoji">${s.emoji}</div><p>${esc(t(s.b))}</p><div class="tour-dots">${dots}</div>`,
@@ -522,6 +620,31 @@
   function initStats(){
     $('#stats-back').addEventListener('click', ()=>{ AkisGarden.unmount($('#pond-full')); show('view-home'); refreshPondMini(); });
     $('#btn-today-sessions').addEventListener('click', openTodaySessions);
+
+    // ---- VERİ YEDEĞİ: dışa aktar (paylaş/panoya) + geri yükle (yapıştır) ----
+    const be=$('#btn-backup'), bi=$('#btn-restore');
+    if(be) be.addEventListener('click', async ()=>{
+      const veri=AkisStats.exportData();
+      try{
+        const Share = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Share;
+        if(isNative() && Share && Share.share){ await Share.share({ title:'Akis backup', text:veri }); return; }
+      }catch(e){ return; }   // paylaşımdan vazgeçti → sessiz
+      try{ await navigator.clipboard.writeText(veri); toast(t('backup_copied')); }catch(e){}
+    });
+    if(bi) bi.addEventListener('click', ()=>{
+      openModal({
+        title:t('backup_import'),
+        bodyHTML:`<textarea id="restore-ta" class="restore-ta" rows="6" placeholder="${esc(t('backup_paste_ph'))}"></textarea>`,
+        actions:[
+          {label:t('cancel'), cls:'ghost'},
+          {label:t('backup_import'), cls:'primary', fn:()=>{
+            const v=($('#restore-ta')||{}).value||'';
+            if(AkisStats.importData(v)){ toast(t('restore_done')); openStats(); refreshPondMini(); }
+            else toast(t('restore_fail'));
+          }}
+        ]
+      });
+    });
     $('#btn-reset-stats').addEventListener('click', ()=>{
       openModal({
         title:t('reset_title'),
@@ -534,9 +657,19 @@
     });
   }
   function openStats(){
+    // Ana ekran mini-ormanı istatistik açıkken arkada çizmesin (stats-back'teki refreshPondMini geri bağlar)
+    try{ const cv=$('#pond-mini'); if(cv && cv._mounted){ AkisGarden.unmount(cv); cv._mounted=false; } }catch(e){}
     $('#st-today').textContent = AkisStats.todayMinutes();
     $('#st-streak').textContent = AkisStats.streak();
     $('#st-total').textContent = AkisStats.totalHours().toFixed(1);
+    // seri dondurma hakkı + rozetler
+    const fl=$('#freeze-left'); if(fl) fl.textContent = t('freeze_left',{n:AkisStats.freezesLeft()});
+    const br=$('#badges-row');
+    if(br && AkisStats.badges){
+      br.innerHTML = AkisStats.badges().map(b=>
+        `<div class="badge ${b.on?'on':''}" title="${esc(t(b.id))}"><span class="b-emoji">${b.emoji}</span><span class="b-name">${esc(t(b.id))}</span></div>`
+      ).join('');
+    }
     const ph=$('#pond-stats-h'); if(ph) ph.textContent='🌳 '+t('forest_stats_title',{n:AkisStats.itemCount()});
     // haftalık grafik (gün adları yerel) — barlar tıklanabilir
     const wk=AkisStats.last7(AkisI18n.current()); const max=Math.max(30,...wk.map(d=>d.minutes));
@@ -552,7 +685,9 @@
   function refreshPondMini(){
     const cv=$('#pond-mini'); if(!cv) return;
     AkisGarden.update(cv, AkisStats.items());
-    if(!cv._mounted){ AkisGarden.mount(cv, AkisStats.items()); cv._mounted=true; }
+    // Ana ekran görünmüyorken (seans/istatistik) canvas'ı YENİDEN BAĞLAMA — arkada 60fps pil yakar
+    const evdeyiz = $('#view-home').classList.contains('active');
+    if(!cv._mounted && evdeyiz){ AkisGarden.mount(cv, AkisStats.items()); cv._mounted=true; }
     const c=$('#pond-count'); if(c) c.textContent=t('forest_count',{n:AkisStats.itemCount()});
   }
 
@@ -617,6 +752,8 @@
 
   document.addEventListener('visibilitychange', ()=>{
     if(document.hidden && AkisTimer.running && AkisTimer.phase==='work'){ /* mobilde katı mod eklenecek */ }
+    // Geri dönüşte wake lock'u yeniden al (tarayıcı/WebView arka planda otomatik bırakır)
+    if(!document.hidden && AkisTimer.running){ requestWakeLock(); }
   });
 
   // ========== DİL SEÇİCİ ==========
@@ -686,7 +823,7 @@
     AkisI18n.onChange(onLangChange);
     refreshBreakChips();
     if(window.AkisNotify) AkisNotify.init();
-    if(window.AkisAds){ AkisAds.init(window.AkisPremium ? AkisPremium.isPremium() : false); refreshPremiumUI(); setTimeout(()=>{ try{ AkisAds.onAppOpen(); }catch(e){} refreshPremiumUI(); }, 3000); }  // açılış reklamı (hazırsa) + CTA tazele
+    if(window.AkisAds){ AkisAds.init(window.AkisPremium ? AkisPremium.isPremium() : false); refreshPremiumUI(); setTimeout(()=>{ refreshPremiumUI(); }, 3000); }  // CTA tazele. AÇILIŞ REKLAMI KALDIRILDI (2026-08-08): AdMob "app load" interstitial'ını YASAKLIYOR (yasak yerleşimler); açılış için ayrı App Open formatı gerekir, eklentide yok (issue #167).
     window.addEventListener('orientationchange', ()=>{ setTimeout(()=>AkisVisual.resize(), 250); });
     if(tourNeeded()) setTimeout(()=>startTour(), 700);   // ilk açılış tanıtımı
   }

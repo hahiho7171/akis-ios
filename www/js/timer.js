@@ -91,12 +91,14 @@ const AkisTimer = (() => {
 
   function extend(sec){        // "Akıştaysan +5 dk"
     if(countUp) return;
+    if(phase!=='work') return; // bayat flow kartından molaya +5 dk eklenmesin
     targetSec+=sec; running=true; startLoop();
   }
 
   /* Kullanıcının seçtiği süreyle mola başlat (Mola butonu). Geri sayımlı, sabit süre. */
   function customBreak(sec){
     stopLoop();
+    if(phase==='work') completedWork++;   // Mola butonu da döngüyü ilerletsin (uzun mola + nokta göstergesi çalışsın)
     phase='break'; elapsed=0; countUp=false; targetSec=Math.max(30,sec);
     running=true;
     emit('phaseStart', phase, snapshot());

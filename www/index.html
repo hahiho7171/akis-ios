@@ -27,10 +27,10 @@
       <div class="home-body">
         <p class="tagline" data-i18n="tagline">Sana uyan tempoyu seç. Katı değil, esnek.</p>
 
-        <!-- Reklamsız ol (3 gün muafiyet bitince / abone değilken görünür) -->
+        <!-- Reklamsız ol (1 gün muafiyet bitince / abone değilken görünür) -->
         <button id="premium-cta" class="premium-cta hidden">
           <span class="pc-spark">✦</span>
-          <span class="pc-text" data-i18n="premium_cta">Reklam istemiyor musun? Aylık ~1$ ile reklamsız Akış</span>
+          <span class="pc-text" data-i18n="premium_cta">Reklam istemiyor musun? Premium ile reklamsız kullan</span>
         </button>
 
         <!-- Mod seçimi -->
@@ -40,7 +40,7 @@
             <span class="mode-desc" data-i18n="mode_pomodoro_desc">25 dk çalış · 5 dk mola</span>
           </button>
           <button class="mode-card" data-mode="fiftytwo">
-            <span class="mode-name" data-i18n="mode_fiftytwo">52 / 17</span>
+            <span class="mode-name" data-i18n="mode_fiftytwo" dir="ltr">52 / 17</span>
             <span class="mode-desc" data-i18n="mode_fiftytwo_desc">Bilimsel derin tempo</span>
           </button>
           <button class="mode-card" data-mode="flowtime">
@@ -104,6 +104,9 @@
           </div>
         </div>
 
+        <!-- Derin Odak: uygulamadan ayrılırsan ağacın solar (opsiyonel taahhüt modu) -->
+        <button id="deep-focus-toggle" class="chip deep-chip">🛡️ <span data-i18n="deep_focus">Derin Odak</span></button>
+
         <!-- Akış Ormanı (mini) -->
         <div class="pond-card">
           <div class="pond-head">
@@ -154,6 +157,7 @@
       <div id="break-sheet" class="break-sheet hidden">
         <div class="bs-head">
           <h4 data-i18n="break_pick_title">Mola süresi</h4>
+          <p class="bs-hint" data-i18n="break_safe_hint">Odak duraklar — ağacın güvende</p>
           <button id="break-sheet-x" class="icon-btn ghost"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
         </div>
         <div class="bs-chips" id="bs-chips">
@@ -199,7 +203,6 @@
         <button id="sound-close" class="icon-btn ghost"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="drawer-body">
-        <button id="premium-row" class="premium-row">✦ Premium — reklamsız</button>
         <div class="sound-section">
           <h4 data-i18n="ambient">Ortam sesleri</h4>
           <p class="mix-hint" data-i18n="mix_hint">Birden fazlasını aynı anda açıp karıştırabilirsin</p>
@@ -217,6 +220,7 @@
             <input id="music-vol" type="range" min="0" max="100" value="40" />
           </div>
         </div>
+        <button id="premium-row" class="premium-row">✦ Premium — reklamsız</button>
       </div>
     </div>
 
@@ -244,6 +248,7 @@
           <div class="stat-card"><span class="stat-num" id="st-streak">0</span><span class="stat-lbl" data-i18n="st_streak">Seri (gün)</span></div>
           <div class="stat-card"><span class="stat-num" id="st-total">0</span><span class="stat-lbl" data-i18n="st_total">Toplam (saat)</span></div>
         </div>
+        <p class="freeze-note" id="freeze-left"></p>
 
         <!-- Bugünkü oturumlar (tıklanabilir → detay) -->
         <button id="btn-today-sessions" class="section-btn">
@@ -254,6 +259,9 @@
         <h4 class="stats-h" data-i18n="last7">Son 7 gün</h4>
         <div class="week-chart" id="week-chart"></div>
         <p class="chart-hint" data-i18n="tap_hint_day">Detay için bir güne dokun</p>
+
+        <h4 class="stats-h" data-i18n="badges_title">Başarımlar</h4>
+        <div class="badges-row" id="badges-row"></div>
 
         <h4 class="stats-h" id="pond-stats-h">🌳 Akış Ormanın</h4>
         <canvas id="pond-full"></canvas>
@@ -272,6 +280,11 @@
             <span data-i18n="share_app">Arkadaşına gönder</span>
             <svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M12 15V3M8 7l4-4 4 4"/></svg>
           </button>
+        </div>
+
+        <div class="backup-row">
+          <button id="btn-backup" class="section-btn"><span data-i18n="backup_export">Verini dışa aktar</span><svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M12 3v12M8 11l4 4 4-4"/></svg></button>
+          <button id="btn-restore" class="section-btn"><span data-i18n="backup_import">Yedeği geri yükle</span><svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M12 15V3M8 7l4-4 4 4"/></svg></button>
         </div>
 
         <button id="btn-reset-stats" class="text-btn" data-i18n="reset_stats">İstatistikleri sıfırla</button>

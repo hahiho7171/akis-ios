@@ -141,8 +141,9 @@ const AkisVisual = (() => {
     ctx.beginPath(); ctx.moveTo(-R*0.12,0); ctx.lineTo(R*0.74,0);
     ctx.lineWidth=2; ctx.lineCap='round'; ctx.strokeStyle=c.line; ctx.shadowColor=c.glow; ctx.shadowBlur=10; ctx.stroke();
     ctx.restore();
-    // ikinci (yavaş) ibre — dakika hissi
-    const minA = (time%600)/600*Math.PI*2 - Math.PI/2;
+    // BEYAZ KALIN İBRE = KALAN SÜRE (kadran kenarındaki altın yayın ucunu gösterir — ibre ile yay
+    // artık aynı şeyi anlatıyor; "saat kaç?" karmaşası bitti). Süre azaldıkça 12'ye doğru toplanır.
+    const minA = -Math.PI/2 + Math.PI*2*rem;
     ctx.save(); ctx.translate(cx,cy); ctx.rotate(minA);
     ctx.beginPath(); ctx.moveTo(-R*0.08,0); ctx.lineTo(R*0.5,0);
     ctx.lineWidth=3.4; ctx.lineCap='round'; ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.stroke();

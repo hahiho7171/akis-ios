@@ -25,20 +25,25 @@ const AkisGarden = (() => {
 
   const SKY_TOP=[13,26,36], SKY_HZ=[26,64,66], HAZE=[42,74,74];
   const GROUND_TOP=[28,74,50], GROUND_BOT=[16,50,32];
-  const FOLIAGE=[[47,125,74],[53,127,79],[42,111,67],[60,138,85]];
+  // Derinlikli yaprak paleti (grafiker önerisi 2026-08-08): gölge → orta → ışık; eski çamurlu tonlar yerine
+  const FOLIAGE=[[46,93,67],[78,156,104],[62,124,86],[90,170,118]];
+  const FOL_LIGHT=[143,217,159];   // rim-light / tepe ışığı (#8FD99F)
+  const PALE_GRAY=[110,118,112];   // "Derin Odak" bozulunca soluk ağaç rengi
+  const MOON_X=0.72;               // ay/ışıma yatay konumu (rim-light yönü buna bakar)
 
-  function mount(cv,items){ active.set(cv,{items:items||[]}); if(!raf){t0=performance.now(); loop();} }
+  function mount(cv,items){ active.set(cv,{items:items||[],layout:null}); if(!raf){t0=performance.now(); loop();} }
   function unmount(cv){ active.delete(cv); if(!active.size&&raf){cancelAnimationFrame(raf);raf=null;} }
-  function update(cv,items){ if(active.has(cv)) active.get(cv).items=items||[]; }
+  function update(cv,items){ if(active.has(cv)){ const v=active.get(cv); v.items=items||[]; v.layout=null; } }
 
-  function loop(){ raf=requestAnimationFrame(loop); const time=(performance.now()-t0)/1000; active.forEach((v,cv)=>draw(cv,v.items,time)); }
+  function loop(){ raf=requestAnimationFrame(loop); const time=(performance.now()-t0)/1000; active.forEach((v,cv)=>draw(cv,v,time)); }
 
-  function draw(cv,items,time){
+  function draw(cv,v,time){
+    const items=v.items;
     const ctx=cv.getContext('2d');
     const dpr=Math.min(window.devicePixelRatio||1,2.5);
     const r=cv.getBoundingClientRect(); const W=r.width, H=r.height;
     if(W<2||H<2) return;
-    if(cv.width!==Math.round(W*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); }
+    if(cv.width!==Math.round(W*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); v.layout=null; }
     ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.clearRect(0,0,W,H);
 
@@ -49,8 +54,15 @@ const AkisGarden = (() => {
     const sky=ctx.createLinearGradient(0,0,0,horizon+8);
     sky.addColorStop(0,rgb(SKY_TOP)); sky.addColorStop(1,rgb(SKY_HZ));
     ctx.fillStyle=sky; ctx.fillRect(0,0,W,horizon+8);
-    // yumuşak ufuk ışıması (ay/güneş hissi)
-    const glow=ctx.createRadialGradient(W*0.72,horizon,4,W*0.72,horizon,H*0.5);
+    // sabit yıldızlar (deterministik konum, yumuşak nefes alan parlaklık)
+    for(let s=0;s<11;s++){
+      const sx=W*rnd(s*3.7+0.9), sy=horizon*0.72*rnd(s*5.1+2.3);
+      const tw=0.45+0.55*Math.abs(Math.sin(time*0.5+s*2.1));
+      ctx.fillStyle=`rgba(226,238,248,${0.32*tw})`;
+      ctx.beginPath(); ctx.arc(sx,sy, s%4===0?1.6:1.0, 0,7); ctx.fill();
+    }
+    // yumuşak ufuk ışıması (ay hissi)
+    const glow=ctx.createRadialGradient(W*MOON_X,horizon,4,W*MOON_X,horizon,H*0.5);
     glow.addColorStop(0,'rgba(245,225,160,.16)'); glow.addColorStop(1,'rgba(245,225,160,0)');
     ctx.fillStyle=glow; ctx.fillRect(0,0,W,horizon+8);
 
@@ -75,19 +87,19 @@ const AkisGarden = (() => {
       return;
     }
 
-    // ağaç konumları (deterministik) — arkadan öne çiz
+    // ağaç konumları (deterministik) — arkadan öne; PERFORMANS: yerleşim yalnız items değişince hesaplanır
     const bandBottom=H-6;
-    const trees=items.map((it,i)=>{
-      const sx=rnd(i*1.73+0.31), sy=rnd(i*2.91+1.13);
-      const depth=Math.min(1,Math.max(0, sy));            // 0 arka .. 1 ön
-      const baseY=lerp(horizon+4, bandBottom, 0.15+depth*0.85);
-      const x=W*(0.05+sx*0.90);
-      const scale=lerp(0.42,1.15,depth);
-      return {it,x,baseY,scale,depth,i};
-    }).sort((a,b)=>a.baseY-b.baseY);
-
-    // performans: en fazla ~170 ağaç
-    const list=trees.slice(-170);
+    if(!v.layout){
+      v.layout=items.map((it,i)=>{
+        const sx=rnd(i*1.73+0.31), sy=rnd(i*2.91+1.13);
+        const depth=Math.min(1,Math.max(0, sy));          // 0 arka .. 1 ön
+        const baseY=lerp(horizon+4, bandBottom, 0.15+depth*0.85);
+        const x=W*(0.05+sx*0.90);
+        const scale=lerp(0.42,1.15,depth);
+        return {it,x,baseY,scale,depth,i};
+      }).sort((a,b)=>a.baseY-b.baseY).slice(-170);        // en fazla ~170 ağaç
+    }
+    const list=v.layout;
     // yoğun orman → zeminde çalı kümeleri (köşe yeşillenmesi)
     if(items.length>=12) drawUndergrowth(ctx,W,H,horizon,bandBottom,items.length,time);
     list.forEach(t=>drawTree(ctx,t,time));
@@ -134,7 +146,10 @@ const AkisGarden = (() => {
     const sway=Math.sin(time*0.8+t.i*1.3)*(3.5*S);
     const x=t.x, y=t.baseY;
     const fi=Math.floor(rnd(t.i*4.1+2.2)*FOLIAGE.length);
-    const fol=fade(FOLIAGE[fi], t.depth);
+    let fol=fade(FOLIAGE[fi], t.depth);
+    // "Derin Odak" bozulmuş seans → soluk/gri ağaç (ceza değil, iz)
+    const pale=!!t.it.pale;
+    if(pale) fol=mix(fol,PALE_GRAY,0.72);
     const folDark=mix(fol,[8,22,14],0.35);
 
     if(st==='sprout'){
@@ -147,11 +162,12 @@ const AkisGarden = (() => {
       return;
     }
 
-    // gövde
+    // gövde (desatüre sıcak kahve — doygun turuncu kahve yerine)
     const trunkH=(st==='sapling'?24:st==='tree'?40:58)*S;
     const trunkW=(st==='sapling'?3:st==='tree'?5:7)*S;
     const tg=ctx.createLinearGradient(x-trunkW,0,x+trunkW,0);
-    tg.addColorStop(0,'#3a2415'); tg.addColorStop(0.5,'#5b3a24'); tg.addColorStop(1,'#331f12');
+    if(pale){ tg.addColorStop(0,'#4a4642'); tg.addColorStop(0.5,'#6b6560'); tg.addColorStop(1,'#403c38'); }
+    else    { tg.addColorStop(0,'#46332a'); tg.addColorStop(0.5,'#6B4A3A'); tg.addColorStop(1,'#3b2b23'); }
     ctx.fillStyle=tg;
     ctx.beginPath();
     ctx.moveTo(x-trunkW*0.5,y);
@@ -183,8 +199,22 @@ const AkisGarden = (() => {
       ctx.fillStyle=rgb(fol);
       blobs.forEach(b=>{ ctx.beginPath(); ctx.arc(topX+b[0]+sway*0.3, topY+b[1], b[2]*0.9,0,7); ctx.fill(); });
       // üst ışık vurgusu
-      ctx.fillStyle=rgb(mix(fol,[220,240,200],0.28));
+      ctx.fillStyle=rgb(mix(fol,FOL_LIGHT,0.45));
       ctx.beginPath(); ctx.arc(topX-R*0.35+sway*0.3, topY-R*0.7, R*0.34,0,7); ctx.fill();
+      // AY YÖNÜNE rim-light: taç kenarında ince açık hilal (soluk ağaçta yok)
+      if(!pale){
+        const moonDir = (ctx.canvas ? 1 : 1); // ay sağda (MOON_X) → sağ kenara ışık
+        ctx.save(); ctx.globalAlpha=0.32; ctx.strokeStyle=rgb(FOL_LIGHT); ctx.lineWidth=1.6*S;
+        ctx.beginPath(); ctx.arc(topX+sway*0.3, topY-R*0.35, R*0.92, -0.55, 0.75); ctx.stroke();
+        ctx.restore();
+      }
+    }
+    if(st==='bigtree' && !pale){
+      // çamda rim-light: en üst katman kenarına açık vurgu
+      ctx.save(); ctx.globalAlpha=0.30; ctx.strokeStyle=rgb(FOL_LIGHT); ctx.lineWidth=1.6*S;
+      const w=34*S;
+      ctx.beginPath(); ctx.moveTo(topX+w*0.55, topY-trunkH*0.55); ctx.quadraticCurveTo(topX+w*0.25, topY-trunkH*0.86, topX, topY-trunkH*0.92);
+      ctx.stroke(); ctx.restore();
     }
   }
 

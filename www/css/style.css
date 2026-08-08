@@ -173,7 +173,7 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 input[type=range]{
   -webkit-appearance:none;flex:1;height:5px;border-radius:3px;background:var(--line);outline:none;
 }
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 input[type=range]:disabled{opacity:.4}
 
 /* ===== İstatistik ===== */
@@ -183,7 +183,7 @@ input[type=range]:disabled{opacity:.4}
 .stat-num{display:block;font-size:30px;font-weight:600;color:var(--accent)}
 .stat-lbl{display:block;color:var(--muted);font-size:12px;margin-top:4px}
 .stats-h{margin:6px 0 0;font-size:15px}
-.week-chart{display:flex;align-items:flex-end;gap:8px;height:150px;background:var(--card);border-radius:var(--radius);padding:16px;border:1px solid var(--line)}
+.week-chart{display:flex;align-items:flex-end;gap:8px;height:150px;flex-shrink:0;background:var(--card);border-radius:var(--radius);padding:16px;border:1px solid var(--line)}
 .week-bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
 .week-bar .bar{width:100%;max-width:26px;border-radius:6px 6px 3px 3px;background:linear-gradient(180deg,var(--accent),var(--accent-2));min-height:3px;transition:height .5s var(--ease)}
 .week-bar .day{color:var(--muted);font-size:11px}
@@ -378,3 +378,73 @@ input[type=range]:disabled{opacity:.4}
   animation:ad-spin .8s linear infinite;
 }
 @keyframes ad-spin{to{transform:rotate(360deg)}}
+
+/* ===== 2026-08-08 kusursuzluk paketi: yeni bileşenler ===== */
+
+/* Kapalı çekmece tamamen görünmez olsun (ekran-dışı transform'a ek sigorta;
+   bazı WebView/emülasyon birleştirmelerinde ekran dışı katman ekrana sızabiliyor).
+   NOT: visibility:hidden bazı yakalamalarda AÇIK panelin içeriğini de boyamıyordu → opacity kullan. */
+.drawer:not(.open){opacity:0;pointer-events:none}
+
+/* Derin Odak anahtarı (ana ekran) */
+.deep-chip{align-self:flex-start;display:inline-flex;align-items:center;gap:6px}
+.deep-chip.active{background:var(--accent);color:#04211f;border-color:var(--accent)}
+
+/* Arka plan seçici: metin çipi → video poster kartı */
+#bg-chips{display:flex;flex-wrap:wrap;gap:10px}
+#bg-chips .bg-card{
+  width:86px;height:54px;border-radius:10px;position:relative;overflow:hidden;
+  background-size:cover;background-position:center;border:2px solid rgba(255,255,255,.10);
+  color:#fff;font-size:10px;display:flex;align-items:flex-end;justify-content:center;
+  padding:0 4px 4px;text-shadow:0 1px 4px rgba(0,0,0,.9);
+}
+#bg-chips .bg-card::before{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 40%,rgba(0,0,0,.55));pointer-events:none}
+#bg-chips .bg-card.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 0 14px rgba(55,207,224,.35)}
+#bg-chips .bg-card-none{background:linear-gradient(160deg,#131a24,#0a0f16)}
+
+/* Mola sayfası güven ipucu */
+.bs-hint{margin:2px 0 0;color:var(--muted);font-size:12px}
+
+/* Seri dondurma notu */
+.freeze-note{margin:-8px 0 0;color:var(--muted);font-size:12px;text-align:center}
+
+/* Rozetler */
+.badges-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.badge{
+  background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;
+  opacity:.34;filter:grayscale(.9);text-align:center;
+}
+.badge.on{opacity:1;filter:none;border-color:rgba(244,205,118,.45);box-shadow:0 0 10px rgba(244,205,118,.10)}
+.badge .b-emoji{font-size:20px;line-height:1}
+.badge .b-name{font-size:10px;color:var(--muted)}
+.badge.on .b-name{color:var(--text)}
+
+/* Yedek satırı */
+.backup-row{display:flex;flex-direction:column;gap:8px}
+.restore-ta{
+  width:100%;background:#0b1018;color:var(--text);border:1px solid var(--line);
+  border-radius:10px;padding:10px;font-size:12px;font-family:ui-monospace,Consolas,monospace;resize:vertical;
+}
+
+/* İstatistik kartlarında renk hiyerarşisi: Bugün=cyan · Seri=altın (en değerli metrik) · Toplam=su mavisi */
+.stat-card:nth-child(2) .stat-num{color:#f4cd76}
+.stat-card:nth-child(3) .stat-num{color:#3aa0f0}
+
+/* Ödül balonu: küçük kutlama pop animasyonu */
+.reward-toast.show{animation:reward-pop .5s cubic-bezier(.2,1.4,.4,1)}
+@keyframes reward-pop{0%{transform:translate(-50%,-8px) scale(.7);opacity:0}100%{transform:translate(-50%,0) scale(1);opacity:1}}
+
+/* Tur maskotu (SVG) */
+.tour-emoji svg{display:block;margin:0 auto}
+
+/* ===== Tablet düzeni: içerik ortalanır, dikeyde alt boşluk dolmaz ===== */
+@media (min-width:640px){
+  .home-body,.stats-body{max-width:640px;margin:0 auto;width:100%}
+  .pond-card canvas{min-height:200px}
+}
+@media (min-width:1000px){
+  .stats-body{max-width:900px}
+  .week-bar .bar{max-width:40px}
+  .stat-num{font-size:36px}
+}
