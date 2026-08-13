@@ -1,0 +1,4 @@
+# Kabuk betikleri macOS build makinesinde CRLF ile patlar → daima LF
+*.sh text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
