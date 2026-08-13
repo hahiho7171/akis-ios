@@ -51,8 +51,12 @@ workflows:
           /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
           # AdMob App ID (iOS) — yoksa uygulama açılışta çöker
           /usr/libexec/PlistBuddy -c "Set :GADApplicationIdentifier ca-app-pub-3326866070505611~1687859449" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :GADApplicationIdentifier string ca-app-pub-3326866070505611~1687859449" "$PLIST"
-          # ATT — izleme izni açıklaması (kişiselleştirilmiş reklam için)
-          /usr/libexec/PlistBuddy -c "Set :NSUserTrackingUsageDescription 'Sana daha uygun reklamlar gösterebilmek için kullanılır.'" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :NSUserTrackingUsageDescription string 'Sana daha uygun reklamlar gösterebilmek için kullanılır.'" "$PLIST"
+      # 🚨 ATT izin metni buradan KALDIRILDI (2026-08-12 Apple reddi, Guideline 4.0.0).
+      # Metin Türkçe gömülüydü; inceleyicinin İngilizce iPad'inde uygulama İngilizce,
+      # izin kutusu Türkçe çıktı → ret. Artık ayrı betik yönetiyor (İngilizce + 20 dil).
+      - name: İzin (ATT) metinleri — uygulamanın diliyle eşitle
+        script: |
+          bash scripts/ios_izin_metinleri.sh
       - name: iOS imzalama dosyalarını oluştur/al (sertifika + profil)
         script: |
           keychain initialize
