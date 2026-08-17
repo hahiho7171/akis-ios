@@ -473,12 +473,32 @@
   }
 
   // ===== PREMIUM / paywall =====
+  // ⚠️ Apple Guideline 3.1.2(c): otomatik yenilenen abonelikte UYGULAMANIN İÇİNDE şunlar ZORUNLU —
+  // aboneliğin adı, süresi, fiyatı ve ÇALIŞAN EULA + gizlilik politikası linkleri.
+  // 17 Ağu 2026'da tam bu yüzden reddedildik; aşağıdaki bloğu sadeleştirme/silme.
+  const EULA_URL='https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+  const PRIVACY_URL='https://akis-odak-app.web.app/gizlilik';
+
   function premOn(){ try{ return !!(window.AkisPremium && AkisPremium.isPremium()); }catch(e){ return false; } }
+  // Linkler: target=_blank → Capacitor hem iOS'ta hem Android'de sistem tarayıcısında açar.
+  function legalLinksHTML(){
+    return `<p class="pw-links">`+
+      `<a href="${EULA_URL}" target="_blank" rel="noopener noreferrer">${esc(t('premium_terms'))}</a>`+
+      `<span class="pw-sep" aria-hidden="true">·</span>`+
+      `<a href="${PRIVACY_URL}" target="_blank" rel="noopener noreferrer">${esc(t('premium_privacy'))}</a>`+
+      `</p>`;
+  }
   function openPaywall(){
-    const price = (window.AkisPremium && AkisPremium.priceText && AkisPremium.priceText()) || '~1$';
+    // Mağaza fiyatı okunamazsa bile SOMUT bir fiyat görünmeli (Apple 3.1.2(c) fiyatı zorunlu kılıyor).
+    const price = (window.AkisPremium && AkisPremium.priceText && AkisPremium.priceText()) || 'US$0.99';
     openModal({
       title: t('premium_title'),
-      bodyHTML: `<p>${esc(t('premium_body'))}</p><p style="opacity:.7;font-size:13px;margin-top:8px">${esc(t('premium_price',{price}))}</p>`,
+      bodyHTML:
+        `<p class="pw-name">${esc(t('premium_product'))}</p>`+
+        `<p>${esc(t('premium_body'))}</p>`+
+        `<p class="pw-meta">${esc(t('premium_price',{price}))}</p>`+
+        `<p class="pw-meta">${esc(t('premium_len'))}</p>`+
+        legalLinksHTML(),
       actions: [
         {label: t('premium_restore'), cls:'ghost', fn: ()=>{ try{ if(window.AkisPremium) AkisPremium.restore(); }catch(e){} }},
         {label: t('premium_subscribe'), cls:'primary', fn: async ()=>{ try{ if(window.AkisPremium) await AkisPremium.buy(); }catch(e){} }}
