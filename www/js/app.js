@@ -574,9 +574,9 @@
     const metin=t('share_text')+' '+storeUrl();
     try{
       const Share = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Share;
-      if(Share && Share.share){ await Share.share({title:'Akış', text:t('share_text'), url:storeUrl()}); return; }
+      if(Share && Share.share){ await Share.share({title:'Akora', text:t('share_text'), url:storeUrl()}); return; }
     }catch(e){ return; }                                  // kullanıcı vazgeçti → sessiz
-    try{ if(navigator.share){ await navigator.share({title:'Akış', text:t('share_text'), url:storeUrl()}); return; } }catch(e){ return; }
+    try{ if(navigator.share){ await navigator.share({title:'Akora', text:t('share_text'), url:storeUrl()}); return; } }catch(e){ return; }
     try{ await navigator.clipboard.writeText(metin); toast(t('link_copied')); }catch(e){}
   }
 

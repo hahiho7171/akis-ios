@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Akış iOS — izin (ATT) metinlerini uygulamanın diline eşitle
+# Akora iOS — izin (ATT) metinlerini uygulamanın diline eşitle
 # -----------------------------------------------------------------------------
 # NEDEN VAR: 2026-08-12'de Apple 1.9.4'ü "Guideline 4.0.0 Design" ile REDDETTİ.
 # Gerekçe: "the app includes permissions requests that are not written in the
@@ -23,7 +23,7 @@ PLIST="ios/App/App/Info.plist"
 APPDIR="ios/App/App"
 PROJ="ios/App/App.xcodeproj"
 
-EN_ATT="This lets Akış show ads that are more relevant to you. Your focus sessions and statistics always stay on your device."
+EN_ATT="This lets Akora show ads that are more relevant to you. Your focus sessions and statistics always stay on your device."
 
 # ---- 1) TEMEL: Info.plist İngilizce -----------------------------------------
 /usr/libexec/PlistBuddy -c "Set :NSUserTrackingUsageDescription $EN_ATT" "$PLIST" 2>/dev/null \
@@ -38,25 +38,25 @@ yaz() {  # yaz <lproj-dili> <metin>
 }
 
 yaz en      "$EN_ATT"
-yaz tr      "Bu izin, Akış'ın sana daha uygun reklamlar göstermesini sağlar. Odak seansların ve istatistiklerin her zaman cihazında kalır."
-yaz de      "So kann Akış dir relevantere Werbung zeigen. Deine Fokus-Sitzungen und Statistiken bleiben immer auf deinem Gerät."
-yaz es      "Esto permite que Akış te muestre anuncios más relevantes. Tus sesiones de enfoque y estadísticas siempre permanecen en tu dispositivo."
-yaz fr      "Cela permet à Akış de vous proposer des publicités plus pertinentes. Vos sessions de focus et vos statistiques restent toujours sur votre appareil."
-yaz it      "Questo permette ad Akış di mostrarti annunci più pertinenti. Le tue sessioni di focus e le statistiche restano sempre sul tuo dispositivo."
-yaz nl      "Hiermee kan Akış relevantere advertenties tonen. Je focussessies en statistieken blijven altijd op je apparaat."
-yaz pt      "Isso permite que o Akış mostre anúncios mais relevantes para você. Suas sessões de foco e estatísticas permanecem sempre no seu dispositivo."
-yaz pl      "Dzięki temu Akış może pokazywać bardziej trafne reklamy. Twoje sesje skupienia i statystyki zawsze pozostają na Twoim urządzeniu."
-yaz ru      "Это позволяет Akış показывать более релевантную рекламу. Ваши сессии фокуса и статистика всегда остаются на устройстве."
-yaz uk      "Це дозволяє Akış показувати доречнішу рекламу. Твої сесії фокусу та статистика завжди залишаються на пристрої."
-yaz ar      "يتيح هذا لتطبيق Akış عرض إعلانات أكثر ملاءمة لك. تبقى جلسات تركيزك وإحصاءاتك دائمًا على جهازك."
-yaz hi      "इससे Akış आपको अधिक प्रासंगिक विज्ञापन दिखा पाता है। आपके फ़ोकस सेशन और आंकड़े हमेशा आपके डिवाइस पर ही रहते हैं।"
-yaz id      "Ini memungkinkan Akış menampilkan iklan yang lebih relevan untukmu. Sesi fokus dan statistikmu selalu tersimpan di perangkatmu."
-yaz ja      "これにより、Akış はあなたに関連性の高い広告を表示できます。フォーカスセッションと統計は常に端末内に保存されます。"
-yaz ko      "이를 통해 Akış가 더 관련성 높은 광고를 표시할 수 있습니다. 집중 세션과 통계는 항상 기기에만 저장됩니다."
-yaz th      "สิ่งนี้ช่วยให้ Akış แสดงโฆษณาที่ตรงกับคุณมากขึ้น เซสชันโฟกัสและสถิติของคุณจะอยู่ในอุปกรณ์ของคุณเสมอ"
-yaz vi      "Điều này giúp Akış hiển thị quảng cáo phù hợp hơn với bạn. Các phiên tập trung và thống kê của bạn luôn được lưu trên thiết bị."
-yaz zh-Hans "这样 Akış 可以向你展示更相关的广告。你的专注记录和统计始终保存在你的设备上。"
-yaz zh-Hant "這樣 Akış 可以向你顯示更相關的廣告。你的專注紀錄與統計一律保存在你的裝置中。"
+yaz tr      "Bu izin, Akora'ın sana daha uygun reklamlar göstermesini sağlar. Odak seansların ve istatistiklerin her zaman cihazında kalır."
+yaz de      "So kann Akora dir relevantere Werbung zeigen. Deine Fokus-Sitzungen und Statistiken bleiben immer auf deinem Gerät."
+yaz es      "Esto permite que Akora te muestre anuncios más relevantes. Tus sesiones de enfoque y estadísticas siempre permanecen en tu dispositivo."
+yaz fr      "Cela permet à Akora de vous proposer des publicités plus pertinentes. Vos sessions de focus et vos statistiques restent toujours sur votre appareil."
+yaz it      "Questo permette ad Akora di mostrarti annunci più pertinenti. Le tue sessioni di focus e le statistiche restano sempre sul tuo dispositivo."
+yaz nl      "Hiermee kan Akora relevantere advertenties tonen. Je focussessies en statistieken blijven altijd op je apparaat."
+yaz pt      "Isso permite que o Akora mostre anúncios mais relevantes para você. Suas sessões de foco e estatísticas permanecem sempre no seu dispositivo."
+yaz pl      "Dzięki temu Akora może pokazywać bardziej trafne reklamy. Twoje sesje skupienia i statystyki zawsze pozostają na Twoim urządzeniu."
+yaz ru      "Это позволяет Akora показывать более релевантную рекламу. Ваши сессии фокуса и статистика всегда остаются на устройстве."
+yaz uk      "Це дозволяє Akora показувати доречнішу рекламу. Твої сесії фокусу та статистика завжди залишаються на пристрої."
+yaz ar      "يتيح هذا لتطبيق Akora عرض إعلانات أكثر ملاءمة لك. تبقى جلسات تركيزك وإحصاءاتك دائمًا على جهازك."
+yaz hi      "इससे Akora आपको अधिक प्रासंगिक विज्ञापन दिखा पाता है। आपके फ़ोकस सेशन और आंकड़े हमेशा आपके डिवाइस पर ही रहते हैं।"
+yaz id      "Ini memungkinkan Akora menampilkan iklan yang lebih relevan untukmu. Sesi fokus dan statistikmu selalu tersimpan di perangkatmu."
+yaz ja      "これにより、Akora はあなたに関連性の高い広告を表示できます。フォーカスセッションと統計は常に端末内に保存されます。"
+yaz ko      "이를 통해 Akora가 더 관련성 높은 광고를 표시할 수 있습니다. 집중 세션과 통계는 항상 기기에만 저장됩니다."
+yaz th      "สิ่งนี้ช่วยให้ Akora แสดงโฆษณาที่ตรงกับคุณมากขึ้น เซสชันโฟกัสและสถิติของคุณจะอยู่ในอุปกรณ์ของคุณเสมอ"
+yaz vi      "Điều này giúp Akora hiển thị quảng cáo phù hợp hơn với bạn. Các phiên tập trung và thống kê của bạn luôn được lưu trên thiết bị."
+yaz zh-Hans "这样 Akora 可以向你展示更相关的广告。你的专注记录和统计始终保存在你的设备上。"
+yaz zh-Hant "這樣 Akora 可以向你顯示更相關的廣告。你的專注紀錄與統計一律保存在你的裝置中。"
 
 DILLER="en,tr,de,es,fr,it,nl,pt,pl,ru,uk,ar,hi,id,ja,ko,th,vi,zh-Hans,zh-Hant"
 
