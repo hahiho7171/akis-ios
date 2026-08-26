@@ -6,7 +6,7 @@
   // ---- ayarlar (kalıcı) ----
   const settings = Object.assign({
     mode:'pomodoro', workMin:30, breakMin:5, visual:'hourglass',
-    background:'none', mix:{}, music:'off', musicVol:40,
+    background:'none', mix:{}, music:'classic', musicVol:40,   // 2026-08-26 kullanıcı kararı: açılış sesi ambiyans değil KLASİK (Satie), orta ses. Ambiyans (yağmur vb.) varsayılan KAPALI.
     deepFocus:false          // "Derin Odak": uygulamadan 30sn+ ayrılırsan ağaç soluk dikilir (opsiyonel)
   }, load());
 
@@ -500,8 +500,21 @@
         `<p class="pw-meta">${esc(t('premium_len'))}</p>`+
         legalLinksHTML(),
       actions: [
-        {label: t('premium_restore'), cls:'ghost', fn: ()=>{ try{ if(window.AkisPremium) AkisPremium.restore(); }catch(e){} }},
-        {label: t('premium_subscribe'), cls:'primary', fn: async ()=>{ try{ if(window.AkisPremium) await AkisPremium.buy(); }catch(e){} }}
+        {label: t('premium_restore'), cls:'ghost', fn: async ()=>{
+          // 🩹 2026-08-26: eskiden sonuç yutuluyordu → kullanıcıya "hiçbir şey olmadı" gibi görünüyordu
+          if(!window.AkisPremium){ toast(t('premium_fail')); return; }
+          toast(t('premium_busy'));
+          let r=null; try{ r = await AkisPremium.restore(); }catch(e){}
+          if(!r || !r.ok) toast(t('premium_fail'));
+          else if(r.premium) toast(t('premium_active'));
+          else toast(t('premium_restore_none'));
+        }},
+        {label: t('premium_subscribe'), cls:'primary', fn: async ()=>{
+          if(!window.AkisPremium){ toast(t('premium_fail')); return; }
+          toast(t('premium_busy'));
+          let r=null; try{ r = await AkisPremium.buy(); }catch(e){}
+          if(!r || !r.ok){ if(!r || r.reason!=='iptal/hata') toast(t('premium_fail')); }
+        }}
       ]
     });
   }
@@ -524,34 +537,46 @@
 
   // ========== PUANLA / PAYLAŞ / TANITIM ==========
   const PKG='com.asimgokcek.akis';
-  const STORE_URL='https://play.google.com/store/apps/details?id='+PKG;
+  const APPLE_ID='6791552371';
+  /* 🩹 2026-08-26 DÜZELTME — mağaza bağlantısı PLATFORMA GÖRE seçilir.
+     Eskiden sabit Google Play adresiydi: iPhone'da "Uygulamayı puanla" market:// çalışmadığı için
+     Google Play sayfasına düşüyor, "Arkadaşına gönder" de iPhone kullanıcısına PLAY linki yolluyordu. */
+  function magazaPlat(){ try{ return (window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform()) || 'web'; }catch(e){ return 'web'; } }
+  const PLAY_URL='https://play.google.com/store/apps/details?id='+PKG;
+  const APPLE_URL='https://apps.apple.com/app/id'+APPLE_ID;
+  function storeUrl(){ return magazaPlat()==='ios' ? APPLE_URL : PLAY_URL; }
   const TOUR_KEY='akis.tour.v1';
   const RATE_KEY='akis.rateAsked.v1';
   const RATE_AFTER=5;                    // bu kadar seans bitince bir kez puan sorulur
 
   function isNative(){ try{ return !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()); }catch(e){ return false; } }
 
-  // Mağaza sayfası: önce market:// (Play uygulamasını açar), açılmazsa https adresi.
+  /* Mağaza sayfası: önce mağaza uygulamasını aç (Android market:// · iOS itms-apps://),
+     açılmazsa https adresine düş. Platform ayrımı ŞART — iOS'ta market:// hiçbir şey yapmaz. */
   function openStore(){
     try{ localStorage.setItem(RATE_KEY,'1'); }catch(e){}
+    const web = storeUrl();
     if(isNative()){
+      const derin = magazaPlat()==='ios'
+        ? 'itms-apps://itunes.apple.com/app/id'+APPLE_ID+'?action=write-review'
+        : 'market://details?id='+PKG;
       let acildi=false;
-      const to=setTimeout(()=>{ if(!acildi) try{ window.open(STORE_URL,'_blank'); }catch(e){} }, 900);
-      try{ window.location.href='market://details?id='+PKG; acildi=true; }catch(e){ clearTimeout(to); }
+      const to=setTimeout(()=>{ if(!acildi) try{ window.open(web,'_blank'); }catch(e){} }, 900);
+      try{ window.location.href=derin; acildi=true; }catch(e){ clearTimeout(to); }
       setTimeout(()=>clearTimeout(to), 2500);
       return;
     }
-    try{ window.open(STORE_URL,'_blank'); }catch(e){}
+    try{ window.open(web,'_blank'); }catch(e){}
   }
 
   // Paylaş: Capacitor Share → Web Share → panoya kopyala (hepsi başarısızsa sessiz).
   async function shareApp(){
-    const metin=t('share_text')+' '+STORE_URL;
+    const metin=t('share_text')+' '+storeUrl();
     try{
       const Share = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Share;
-      if(Share && Share.share){ await Share.share({title:'Akış', text:t('share_text'), url:STORE_URL}); return; }
+      if(Share && Share.share){ await Share.share({title:'Akış', text:t('share_text'), url:storeUrl()}); return; }
     }catch(e){ return; }                                  // kullanıcı vazgeçti → sessiz
-    try{ if(navigator.share){ await navigator.share({title:'Akış', text:t('share_text'), url:STORE_URL}); return; } }catch(e){ return; }
+    try{ if(navigator.share){ await navigator.share({title:'Akış', text:t('share_text'), url:storeUrl()}); return; } }catch(e){ return; }
     try{ await navigator.clipboard.writeText(metin); toast(t('link_copied')); }catch(e){}
   }
 

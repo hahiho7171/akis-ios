@@ -162,13 +162,14 @@ window.AkisAds = (function () {
   function showInterstitialAwait() {
     return new Promise((resolve) => {
       let done = false, guard = null;
-      const finish = (v) => { if (done) return; done = true; if (guard) { clearTimeout(guard); guard = null; } pendingInter = null; waitUI(false); resolve(v); };
+      const finish = (v) => { if (done) return; done = true; if (guard) { clearTimeout(guard); guard = null; } pendingInter = null; waitUI(false); releaseApp(); resolve(v); };
 
       if (!adsActive() || !native()) { finish(false); return; }
       if (Date.now() - lastInterstitial < MIN_GAP) { finish(false); return; }   // arka arkaya reklam yok
 
       const doShow = () => {
         waitUI(false);
+        holdApp();                                               // sayaç dursun, ses sussun
         pendingInter = finish;                                   // Dismissed/FailedToShow olayı çözecek
         guard = setTimeout(() => finish(true), 45000);            // dismissed olayı hiç gelmezse kilitlenme sigortası (finish temizler)
         try {
@@ -192,6 +193,27 @@ window.AkisAds = (function () {
     });
   }
 
+  /* ===== 🩹 2026-08-26 — REKLAM AÇIKKEN UYGULAMAYI DONDUR (kullanıcı bildirimi) =====
+     Sorun: reklam tam ekran açılırken (a) sayaç arkada işlemeye devam ediyor,
+            (b) yağmur/müzik sesi reklamın üstünden gelmeye devam ediyordu.
+     Çözüm: reklam GERÇEKTEN gösterilirken sayaç duraklatılır, ses+video susturulur;
+            reklam kapanınca ses geri gelir. Sayaç KASITLI olarak kendiliğinden devam
+            ETMEZ — çağıran taraf (app.js) reklamdan sonra yeni fazı başlatır. */
+  let held = false, heldTimer = false;
+  function holdApp() {
+    if (held) return; held = true; heldTimer = false;
+    try { if (window.AkisTimer && AkisTimer.running) { AkisTimer.pause(); heldTimer = true; } } catch (e) {}
+    try { if (window.AkisAudio) { AkisAudio.pauseMusic(); AkisAudio.suspendAll(); } } catch (e) {}
+    try { const v = document.getElementById('bg-video'); if (v) v.pause(); } catch (e) {}
+  }
+  function releaseApp() {
+    if (!held) return; held = false;
+    try { if (window.AkisAudio) { AkisAudio.resumeAll(); AkisAudio.resumeMusic(); } } catch (e) {}
+    try { const v = document.getElementById('bg-video'); if (v && v.getAttribute('src')) { const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); } } catch (e) {}
+    heldTimer = false;   // sayacı burada BAŞLATMIYORUZ; yeni fazı app.js kuracak
+  }
+  function timerWasHeld() { return heldTimer; }
+
   // ---------- Genel API (yerleşimler) ----------
   function onAppOpen() { /* BOŞ (2026-08-08): AdMob politikası uygulama açılışında interstitial'ı yasaklıyor
      (https://support.google.com/admob/answer/6201362). Eklentiye App Open formatı gelirse burada kullanılır. */ }
@@ -206,5 +228,5 @@ window.AkisAds = (function () {
      NOT: Bu "uygulamadan çıkış" DEĞİL (o yasak) — uygulama İÇİ ekran geçişi; AdMob'a uygun. */
   function onSessionExit() { return showInterstitialAwait(); }
 
-  return { init, setPremium, isPremiumNow, inGrace, graceDaysLeft, adsActive, onAppOpen, onWorkEnd, onBreakEnd, onSessionExit };
+  return { init, setPremium, isPremiumNow, inGrace, graceDaysLeft, adsActive, onAppOpen, onWorkEnd, onBreakEnd, onSessionExit, timerWasHeld };
 })();

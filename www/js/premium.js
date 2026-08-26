@@ -35,11 +35,41 @@ window.AkisPremium = (function () {
     } catch (e) { return premium; }
   }
 
+  /* 🩹 2026-08-26 DÜZELTME — "Abone ol / Geri yükle hiçbir şey yapmıyor" hatasının sebebi:
+     Cordova satın alma eklentisi window.CdvPurchase'i ASENKRON tanımlıyor (native köprü hazır olunca).
+     app.js init()'i DOMContentLoaded'da çalıştığı için burada CdvPurchase HENÜZ YOKTU ve fonksiyon
+     sessizce return ediyordu → store hiç başlatılmıyor → buy()/restore() ölü kalıyordu.
+     Çözüm: eklenti gelene kadar deviceready'yi + kısa yoklamayı bekle. */
+  const PLUGIN_WAIT_MS = 20000;
+  let readyPromise = null;
+  function waitForPlugin() {
+    if (cdv()) return Promise.resolve(true);
+    return new Promise(resolve => {
+      let done = false;
+      const bitir = ok => { if (done) return; done = true; clearInterval(iv); clearTimeout(guard);
+        try { document.removeEventListener('deviceready', onReady); } catch (e) {} resolve(ok); };
+      const onReady = () => { if (cdv()) bitir(true); };
+      document.addEventListener('deviceready', onReady, { once: false });
+      const iv = setInterval(() => { if (cdv()) bitir(true); }, 250);
+      const guard = setTimeout(() => bitir(!!cdv()), PLUGIN_WAIT_MS);
+    });
+  }
+
+  // Mağaza hazır mı? Değilse (ilk kez ya da init yarıda kaldıysa) hazırlamayı dener.
+  function ensureReady() {
+    if (storeObj()) return Promise.resolve(true);
+    if (nativePlat() === 'web') return Promise.resolve(false);
+    if (!readyPromise) readyPromise = init().then(() => !!storeObj()).catch(() => false);
+    return readyPromise.then(() => !!storeObj());
+  }
+
   async function init() {
     premium = readCached();
     try { if (window.AkisAds) AkisAds.setPremium(premium); } catch (e) {}
+    if (nativePlat() === 'web') return;          // tarayıcı → mağaza yok, cache ile devam
+    if (!cdv()) await waitForPlugin();           // eklenti yüklenene kadar bekle (ESKİDEN BURADA PES EDİYORDU)
     const C = cdv();
-    if (!C || nativePlat() === 'web') return;   // eklenti yok / web → cache ile devam
+    if (!C) return;                              // 20 sn'de gelmediyse gerçekten yok
     try {
       const { store, ProductType, Platform } = C;
       store.register([
@@ -68,6 +98,7 @@ window.AkisPremium = (function () {
 
   // Promise<{ok:boolean}> — satın alma diyaloğunu aç
   async function buy() {
+    await ensureReady();                          // mağaza hazır değilse önce hazırla
     const s = storeObj(); if (!s) return { ok: false, reason: 'store-yok' };
     try {
       const p = s.get(PRODUCT_ID); if (!p) return { ok: false, reason: 'urun-yok' };
@@ -80,10 +111,16 @@ window.AkisPremium = (function () {
     } catch (e) { return { ok: false, reason: 'iptal/hata' }; }
   }
 
+  // Promise<{ok:boolean, premium?:boolean, reason?:string}> — sessiz kalmasın, sonucu bildir
   async function restore() {
-    const s = storeObj(); if (!s) return;
-    try { if (s.restorePurchases) await s.restorePurchases(); setPremium(ownedNow()); } catch (e) {}
+    await ensureReady();
+    const s = storeObj(); if (!s) return { ok: false, reason: 'store-yok' };
+    try {
+      if (s.restorePurchases) await s.restorePurchases();
+      setPremium(ownedNow());
+      return { ok: true, premium: premium };
+    } catch (e) { return { ok: false, reason: 'hata' }; }
   }
 
-  return { init, isPremium, onChange, buy, restore, priceText, PRODUCT_ID };
+  return { init, isPremium, onChange, buy, restore, priceText, ensureReady, storeReady: () => !!storeObj(), PRODUCT_ID };
 })();
