@@ -13,10 +13,12 @@ const AkisStats = (() => {
       if(d && d.sessions){
         if(!d.items) d.items=[];
         if(d.totalMinutes==null) d.totalMinutes=0;
+        if(d.coins==null) d.coins=0;          // 2026-08-27: jeton ekonomisi
+        if(!d.decos) d.decos=[];              // satin alinan susler
         return d;
       }
     }catch(e){}
-    return {sessions:{}, items:[], totalMinutes:0, streakFreezes:2};
+    return {sessions:{}, items:[], totalMinutes:0, streakFreezes:2, coins:0, decos:[]};
   }
   function save(){ try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){} }
 
@@ -44,6 +46,7 @@ const AkisStats = (() => {
     data.sessions[t].minutes+=minutes;
     data.sessions[t].count+=1;
     data.totalMinutes+=minutes;
+    data.coins=(data.coins||0)+minutes;      // her odak dakikasi 1 jeton
     const item=itemForMinutes(minutes);
     // gece + 3+ seri → ateşböceği bonusu (ormanda gece ışıltısı)
     const h=new Date().getHours();
@@ -154,12 +157,43 @@ const AkisStats = (() => {
 
   function items(){ return data.items; }
   function itemCount(){ return data.items.length; }
-  function reset(){ data={sessions:{},items:[],totalMinutes:0,streakFreezes:2}; save(); }
+
+  /* ---- Zaman Tuneli: tum seanslar, gune gore gruplu, yeniden eskiye ----
+     (rakiplerde vardi, bizde yalnizca "bugunun seanslari" vardi) */
+  function timeline(gunLimit){
+    const gun=new Map();
+    data.items.filter(it=>it.min!=null && it.date).forEach(it=>{
+      if(!gun.has(it.date)) gun.set(it.date,[]);
+      gun.get(it.date).push(it);
+    });
+    return [...gun.entries()]
+      .sort((a,b)=>a[0]<b[0]?1:-1)
+      .slice(0, gunLimit||30)
+      .map(([date,list])=>({
+        date,
+        list: list.slice().sort((a,b)=>(b.ts||0)-(a.ts||0)),
+        minutes: list.reduce((t,x)=>t+(x.min||0),0)
+      }));
+  }
+
+  /* ---- jeton ekonomisi ---- */
+  function coins(){ return data.coins||0; }
+  function ownedDecos(){ return (data.decos||[]).slice(); }
+  function hasDeco(id){ return (data.decos||[]).indexOf(id)>=0; }
+  function buyDeco(id, price){
+    if(hasDeco(id)) return {ok:false, reason:'owned'};
+    if((data.coins||0) < price) return {ok:false, reason:'poor'};
+    data.coins-=price; data.decos.push(id); save();
+    return {ok:true, coins:data.coins};
+  }
+
+  function reset(){ data={sessions:{},items:[],totalMinutes:0,streakFreezes:2,coins:0,decos:[]}; save(); }
 
   applyFreeze();   // açılışta: dün kaçtıysa ve hak varsa seriyi otomatik koru
 
   return { recordFocus, todayMinutes, totalHours, streak, last7,
            sessionsForDate, todaySessions, dayMinutes,
            items, itemCount, itemForMinutes, reset, today,
+           timeline, coins, ownedDecos, hasDeco, buyDeco,
            badges, freezesLeft, exportData, importData, applyFreeze };
 })();

@@ -457,3 +457,29 @@ a.section-btn{text-decoration:none;box-sizing:border-box}   /* EULA / gizlilik s
   .week-bar .bar{max-width:40px}
   .stat-num{font-size:36px}
 }
+
+/* ===== Zaman Tüneli + Süs Dükkânı + jeton (2026-08-27) ===== */
+.coin-pill{background:rgba(244,205,118,.14);border:1px solid rgba(244,205,118,.35);
+  color:#f4cd76;font-size:12.5px;font-weight:650;padding:3px 10px;border-radius:999px;white-space:nowrap}
+
+.tl-wrap{max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.tl-day{margin-bottom:16px}
+.tl-day:last-child{margin-bottom:0}
+.tl-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  padding:0 4px 6px;border-bottom:1px solid var(--line)}
+.tl-head b{font-size:14.5px}
+.tl-head span{color:var(--muted);font-size:12.5px;white-space:nowrap}
+
+.shop-hint{color:var(--muted);font-size:13px;margin:2px 0 10px;line-height:1.5}
+.shop-bal{color:#f4cd76;font-weight:650;font-size:15px;margin:0 0 10px}
+.shop-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.shop-list li{display:flex;align-items:center;gap:12px;padding:11px 4px;
+  border-bottom:1px solid var(--line)}
+.shop-list li:last-child{border-bottom:none}
+.shop-ic{font-size:22px;line-height:1;width:28px;text-align:center;flex-shrink:0}
+.shop-name{flex:1;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shop-buy{background:rgba(244,205,118,.16);border:1px solid rgba(244,205,118,.42);
+  color:#f4cd76;font-size:13px;font-weight:650;padding:7px 13px;border-radius:999px;
+  cursor:pointer;white-space:nowrap;flex-shrink:0}
+.shop-buy.off{opacity:.42}
+.shop-own{color:var(--muted);font-size:12.5px;white-space:nowrap;flex-shrink:0}

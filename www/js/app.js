@@ -545,7 +545,7 @@
   const PLAY_URL='https://play.google.com/store/apps/details?id='+PKG;
   const APPLE_URL='https://apps.apple.com/app/id'+APPLE_ID;
   function storeUrl(){ return magazaPlat()==='ios' ? APPLE_URL : PLAY_URL; }
-  const TOUR_KEY='akis.tour.v1';
+  const TOUR_KEY='akis.tour.v2';   // v2: teknik+bilim sayfalari eklendi (2026-08-27)
   const RATE_KEY='akis.rateAsked.v1';
   const RATE_AFTER=5;                    // bu kadar seans bitince bir kez puan sorulur
 
@@ -591,8 +591,12 @@
     <path d="M30 40q4-6 8-8" stroke="#bdf3fa" stroke-width="3" stroke-linecap="round" opacity=".7"/>${ic||''}</svg>`;
   const TOUR=[
     {emoji:MASKOT_GOVDE(''), t:'tour_t1', b:'tour_b1'},
+    // 2026-08-27: rakiplerin giris ekranlarinda teknigin KENDISI anlatiliyordu; bizde yoktu
+    {emoji:MASKOT_GOVDE('<g transform="translate(56,8)" fill="none" stroke="#f4cd76" stroke-width="2.4"><rect x="0" y="6" width="9" height="9" rx="2.5" fill="#f4cd76" stroke="none"/><rect x="12" y="6" width="9" height="9" rx="2.5"/><rect x="0" y="19" width="9" height="9" rx="2.5" fill="#f4cd76" stroke="none"/><rect x="12" y="19" width="9" height="9" rx="2.5"/></g>'), t:'tour_t5', b:'tour_b5'},
+    {emoji:MASKOT_GOVDE('<g transform="translate(58,6)" fill="none" stroke="#f4cd76" stroke-width="2.4" stroke-linecap="round"><path d="M13 24a9 9 0 1 1 6 0v3h-6z"/><path d="M13 30h6" /><path d="M16 2v3M5 9l2 2M27 9l-2 2"/></g>'), t:'tour_t6', b:'tour_b6'},
     {emoji:MASKOT_GOVDE('<g transform="translate(60,10)"><circle cx="14" cy="14" r="13" fill="#10151c" stroke="#f4cd76" stroke-width="2.5"/><path d="M14 7v7l5 3" stroke="#f4cd76" stroke-width="2.5" stroke-linecap="round"/></g>'), t:'tour_t2', b:'tour_b2'},
     {emoji:MASKOT_GOVDE('<g transform="translate(58,8)" stroke="#f4cd76" stroke-width="2.5" fill="none" stroke-linecap="round"><path d="M4 18v-4a12 12 0 0 1 24 0v4"/><rect x="1" y="16" width="8" height="11" rx="3" fill="#f4cd76" stroke="none"/><rect x="23" y="16" width="8" height="11" rx="3" fill="#f4cd76" stroke="none"/></g>'), t:'tour_t3', b:'tour_b3'},
+    {emoji:MASKOT_GOVDE('<g transform="translate(58,10)" fill="none" stroke="#f4cd76" stroke-width="2.4" stroke-linecap="round"><path d="M3 12h18v8a8 8 0 0 1-16 0z" fill="#f4cd76" stroke="none"/><path d="M21 14h3a4 4 0 0 1 0 8h-3"/><path d="M8 6q2-3 0-5M14 6q2-3 0-5"/></g>'), t:'tour_t7', b:'tour_b7'},
     {emoji:MASKOT_GOVDE('<g transform="translate(62,6)"><path d="M12 2C6 12 2 17 2 23a10 10 0 0 0 20 0C22 17 18 12 12 2Z" fill="#4E9C68"/><rect x="10" y="26" width="4" height="8" rx="1.5" fill="#6B4A3A"/></g>'), t:'tour_t4', b:'tour_b4'}
   ];
   let tourStep=0;
@@ -654,6 +658,70 @@
   function openTodaySessions(){
     openModal({ title:t('today_sessions'), bodyHTML:sessionListHTML(AkisStats.todaySessions()) });
   }
+
+  /* ===================== ZAMAN TÜNELİ (2026-08-27) =====================
+     Rakiplerde tüm geçmiş bir akış hâlinde görünüyordu; bizde yalnız "bugün" vardı. */
+  function gunEtiketi(ds){
+    const bugun=AkisStats.today();
+    const d=new Date(); d.setDate(d.getDate()-1);
+    const dun=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if(ds===bugun) return t('timeline_today');
+    if(ds===dun)   return t('timeline_yesterday');
+    try{
+      const [y,m,g]=ds.split('-').map(Number);
+      return new Date(y,m-1,g).toLocaleDateString(AkisI18n.current(),{day:'numeric',month:'long'});
+    }catch(e){ return ds; }
+  }
+  function openTimeline(){
+    const gunler=AkisStats.timeline(30);
+    const govde = !gunler.length
+      ? `<div class="empty-row">${esc(t('timeline_empty'))}</div>`
+      : gunler.map(g=>
+          `<div class="tl-day"><div class="tl-head"><b>${esc(gunEtiketi(g.date))}</b>`+
+          `<span>${esc(t('timeline_day_sum',{n:g.list.length,m:g.minutes}))}</span></div>`+
+          sessionListHTML(g.list)+`</div>`).join('');
+    openModal({ title:t('timeline_title'), bodyHTML:`<div class="tl-wrap">${govde}</div>` });
+  }
+
+  /* ===================== SÜS DÜKKÂNI + JETON (2026-08-27) =====================
+     Odaklanılan her dakika 1 jeton. Jetonlar ormana süs açar.
+     ⚠️ Var olan hiçbir şey kilitlenmedi — yalnız YENİ süsler eklendi. */
+  const DECOS=[
+    {id:'flowers', fiyat:60,  ad:'deco_flowers', sim:'🌸'},
+    {id:'rock',    fiyat:90,  ad:'deco_rock',    sim:'🪨'},
+    {id:'lantern', fiyat:150, ad:'deco_lantern', sim:'🏮'},
+    {id:'bench',   fiyat:240, ad:'deco_bench',   sim:'🪑'},
+    {id:'pond',    fiyat:380, ad:'deco_pond',    sim:'💧'},
+    {id:'fox',     fiyat:600, ad:'deco_fox',     sim:'🦊'}
+  ];
+  function refreshCoinPill(){
+    const el=$('#coin-pill'); if(el) el.textContent=t('coins_have',{n:AkisStats.coins()});
+  }
+  function shopHTML(){
+    const jeton=AkisStats.coins();
+    return `<p class="shop-hint">${esc(t('shop_hint'))}</p>`+
+      `<p class="shop-bal">${esc(t('coins_have',{n:jeton}))}</p>`+
+      `<ul class="shop-list">`+DECOS.map(d=>{
+        const var_=AkisStats.hasDeco(d.id), yeter=jeton>=d.fiyat;
+        const dugme = var_ ? `<span class="shop-own">${esc(t('shop_owned'))}</span>`
+                           : `<button class="shop-buy${yeter?'':' off'}" data-id="${d.id}">${esc(t('shop_buy'))} · ${d.fiyat}</button>`;
+        return `<li><span class="shop-ic">${d.sim}</span><span class="shop-name">${esc(t(d.ad))}</span>${dugme}</li>`;
+      }).join('')+`</ul>`;
+  }
+  function openShop(){
+    openModal({ title:t('shop_title'), bodyHTML:shopHTML() });
+    const govde=$('#modal-body');
+    govde.querySelectorAll('.shop-buy').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const d=DECOS.find(x=>x.id===b.dataset.id); if(!d) return;
+        const r=AkisStats.buyDeco(d.id, d.fiyat);
+        if(!r.ok){ toast(t(r.reason==='poor'?'shop_need':'shop_owned')); return; }
+        toast(t('shop_bought'));
+        refreshCoinPill(); refreshPondMini();
+        openShop();                       // listeyi yeniden çiz + düğmeleri bağla
+      });
+    });
+  }
   function openDayDetail(dateStr, dayLabel){
     const list=AkisStats.sessionsForDate(dateStr);
     const mins=AkisStats.dayMinutes(dateStr);
@@ -665,6 +733,8 @@
   function initStats(){
     $('#stats-back').addEventListener('click', ()=>{ AkisGarden.unmount($('#pond-full')); show('view-home'); refreshPondMini(); });
     $('#btn-today-sessions').addEventListener('click', openTodaySessions);
+    const tl=$('#btn-timeline'); if(tl) tl.addEventListener('click', openTimeline);
+    const sh=$('#btn-shop');     if(sh) sh.addEventListener('click', openShop);
 
     // ---- VERİ YEDEĞİ: dışa aktar (paylaş/panoya) + geri yükle (yapıştır) ----
     const be=$('#btn-backup'), bi=$('#btn-restore');
@@ -716,6 +786,7 @@
       ).join('');
     }
     const ph=$('#pond-stats-h'); if(ph) ph.textContent='🌳 '+t('forest_stats_title',{n:AkisStats.itemCount()});
+    refreshCoinPill();
     // haftalık grafik (gün adları yerel) — barlar tıklanabilir
     const wk=AkisStats.last7(AkisI18n.current()); const max=Math.max(30,...wk.map(d=>d.minutes));
     $('#week-chart').innerHTML = wk.map(d=>
