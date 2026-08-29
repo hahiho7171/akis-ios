@@ -4,7 +4,7 @@
    update(state): {frac(0..1|null), timeText, phaseText, total, done, currentIdx, isWork} */
 const AkisVisual = (() => {
   let canvas, ctx, raf=null;
-  let type='hourglass';
+  let type='ring';   // 2026-08-29: kum saati kaldırıldı (kullanıcı: 'çok çirkin')
   let st={frac:0,timeText:'',phaseText:'',total:0,done:0,currentIdx:-1,isWork:true};
   let shown=0, W=0,H=0,DPR=1,t0=0;
 
@@ -267,3 +267,8 @@ const AkisVisual = (() => {
 
   return { init, setType, setPhase, update, start, stop, resize, setBgClear };
 })();
+
+/* `const` ile tanımlanan modül global nesneye YAZILMAZ (yalnız `var`/fonksiyon yazar).
+   Kodun her yerinde `window.AkisVisual && ...` biçiminde kontroller var; bu bağlama olmadan
+   hepsi sessizce false dönüyordu (2026-08-27'de ölçülerek bulundu). */
+try{ window.AkisVisual = AkisVisual; }catch(e){}

@@ -25,6 +25,8 @@ workflows:
       - name: Bağımlılıkları kur
         script: |
           npm ci || npm install
+          # scripts/ios_firebase_kur.sh Xcode projesini ruby ile düzenliyor
+          gem install xcodeproj --no-document || sudo gem install xcodeproj --no-document
       - name: Capacitor iOS ekle/senkronla (+ikon)
         script: |
           if [ ! -d "ios" ]; then npx cap add ios; fi
@@ -38,8 +40,8 @@ workflows:
           NEXT=$((LAST + 1))
           if [ -n "$BUILD_NUMBER" ] && [ "$BUILD_NUMBER" -gt "$NEXT" ] 2>/dev/null; then NEXT=$BUILD_NUMBER; fi
           agvtool new-version -all $NEXT
-          agvtool new-marketing-version 2.0.0
-          echo "iOS CFBundleVersion = $NEXT · marketing 2.0.0"
+          agvtool new-marketing-version 2.8.1
+          echo "iOS CFBundleVersion = $NEXT · marketing 2.8.1"
       - name: Info.plist — URL şeması + şifreleme muafiyeti
         script: |
           PLIST="ios/App/App/Info.plist"
@@ -57,6 +59,9 @@ workflows:
       - name: İzin (ATT) metinleri — uygulamanın diliyle eşitle
         script: |
           bash scripts/ios_izin_metinleri.sh
+      - name: Firebase + Apple girişi + push kurulumu
+        script: |
+          bash scripts/ios_firebase_kur.sh
       - name: iOS imzalama dosyalarını oluştur/al (sertifika + profil)
         script: |
           keychain initialize

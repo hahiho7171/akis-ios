@@ -1,3 +1,11 @@
+/* ============================================================
+   MIKRO 11.5 · 2026-08-29 — ekran denetiminin bulduklari
+   `scripts/denetim_ekran.mjs` 10-12px yazilar ve 33-38px dokunma
+   hedefleri raporladi. DESIGN.md: en kucuk tip rolu `kucuk` 12.5px,
+   dokunma hedefi >= 44x44. Asagidakiler o sozlesmeye donus.
+   TEK ISTISNA: takvim hucresindeki dakika sayisi (`mikro`, 11.5px) —
+   gun sayisiyla yarismasin diye kucuk kalir, DESIGN.md'de tanimli.
+   ============================================================ */
 /* ===== Akış — tema (su/akış, sakin, koyu) ===== */
 :root{
   --bg:#070a10;            /* premium near-black */
@@ -84,7 +92,7 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .chip{
   padding:9px 15px;border-radius:20px;background:var(--card);border:1.5px solid var(--line);
   color:var(--muted);font-size:14px;transition:all .18s;
-}
+  min-height:44px;display:inline-flex;align-items:center;justify-content:center}   /* DESIGN.md: dokunma hedefi 44px */
 .chip.active{background:var(--accent);border-color:var(--accent);color:#04211f;font-weight:600}
 .chip:active{transform:scale(.95)}
 .chip.disabled,.chip:disabled{opacity:.4}
@@ -160,9 +168,9 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .drawer-head h3{margin:6px 0;font-size:18px}
 .sound-section{margin:14px 0}
 .sound-section h4{margin:0 0 10px;font-size:14px;color:var(--muted);font-weight:600}
-.soon{font-size:11px;color:var(--warm);font-weight:500}
+.soon{font-size:12.5px;color:var(--warm);font-weight:500}
 /* Ortam sesleri mixer'ı (birden fazlası birlikte) */
-.mix-hint{color:var(--muted);font-size:12px;margin:0 0 12px}
+.mix-hint{color:var(--muted);font-size:12.5px;margin:0 0 12px}
 .mixer{display:flex;flex-direction:column;gap:11px}
 .mix-row{display:grid;grid-template-columns:92px 1fr;align-items:center;gap:12px}
 .mix-lbl{font-size:13px;color:var(--muted)}
@@ -170,10 +178,23 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .mix-row input[type=range]{margin:0}
 .vol-row{display:flex;align-items:center;gap:12px;margin-top:12px}
 .vol-ic{width:20px;height:20px;color:var(--muted)}
+/* 🪤 Kaydiricinin kendisi 5px yuksekti: parmakla tutmak neredeyse imkansiz
+   (denetim "INPUT 246x5" diye raporladi). Cozum: ELEMAN 44px, gorunen RAY
+   yine 5px. Ray artik ::-webkit-slider-runnable-track ile ciziliyor;
+   eleman saydam, dokunma alani tam yukseklik. */
 input[type=range]{
-  -webkit-appearance:none;flex:1;height:5px;border-radius:3px;background:var(--line);outline:none;
+  -webkit-appearance:none;flex:1;height:44px;background:transparent;outline:none;
+  margin:0;cursor:pointer;
 }
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+input[type=range]::-webkit-slider-runnable-track{
+  height:5px;border-radius:3px;background:var(--line);
+}
+input[type=range]::-moz-range-track{
+  height:5px;border-radius:3px;background:var(--line);
+}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);
+  margin-top:-5.5px}   /* (16-5)/2 → ray ile ayni eksende */
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border:0;border-radius:50%;background:var(--accent);cursor:pointer}
 input[type=range]:disabled{opacity:.4}
 
 /* ===== İstatistik ===== */
@@ -181,12 +202,12 @@ input[type=range]:disabled{opacity:.4}
 .stat-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .stat-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 10px;text-align:center}
 .stat-num{display:block;font-size:30px;font-weight:600;color:var(--accent)}
-.stat-lbl{display:block;color:var(--muted);font-size:12px;margin-top:4px}
+.stat-lbl{display:block;color:var(--muted);font-size:12.5px;margin-top:4px}
 .stats-h{margin:6px 0 0;font-size:15px}
 .week-chart{display:flex;align-items:flex-end;gap:8px;height:150px;flex-shrink:0;background:var(--card);border-radius:var(--radius);padding:16px;border:1px solid var(--line)}
 .week-bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
 .week-bar .bar{width:100%;max-width:26px;border-radius:6px 6px 3px 3px;background:linear-gradient(180deg,var(--accent),var(--accent-2));min-height:3px;transition:height .5s var(--ease)}
-.week-bar .day{color:var(--muted);font-size:11px}
+.week-bar .day{color:var(--muted);font-size:12.5px}
 .text-btn{color:var(--muted);font-size:14px;padding:12px;align-self:center}
 .text-btn:active{color:var(--danger)}
 
@@ -218,7 +239,7 @@ input[type=range]:disabled{opacity:.4}
 .lang-item:last-child{border-bottom:none}
 .lang-item:active{background:var(--card)}
 .lang-item.active{color:var(--accent);font-weight:600}
-.lang-item .code{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.lang-item .code{color:var(--muted);font-size:12.5px;text-transform:uppercase;letter-spacing:.5px}
 .lang-item.active .code{color:var(--accent)}
 .lang-item .tick{width:18px;height:18px;stroke:var(--accent);fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;opacity:0}
 .lang-item.active .tick{opacity:1}
@@ -264,7 +285,7 @@ input[type=range]:disabled{opacity:.4}
 /* --- Odak kontrol etiketleri (Sesler / Mola) --- */
 .focus-controls{align-items:flex-start}
 .fctrl{display:flex;flex-direction:column;align-items:center;gap:6px}
-.fctrl-cap{color:var(--muted);font-size:11.5px;font-weight:500}
+.fctrl-cap{color:var(--muted);font-size:12.5px;font-weight:500}
 
 /* --- Mola süresi seçim kartı --- */
 .break-sheet{
@@ -351,7 +372,7 @@ a.section-btn{text-decoration:none;box-sizing:border-box}   /* EULA / gizlilik s
 /* --- Haftalık grafik: tıklanabilir + ipucu --- */
 .week-bar{cursor:pointer;border-radius:8px;transition:background .15s}
 .week-bar:active{background:rgba(255,255,255,.05)}
-.chart-hint{color:var(--muted);font-size:12px;text-align:center;margin:-6px 0 0}
+.chart-hint{color:var(--muted);font-size:12.5px;text-align:center;margin:-6px 0 0}
 
 /* ============================================================= */
 /* ===== YATAY EKRAN (landscape) — sığdır, kaydırma engelle ==== */
@@ -364,7 +385,7 @@ a.section-btn{text-decoration:none;box-sizing:border-box}   /* EULA / gizlilik s
   .round-btn.big{width:62px;height:62px}
   .round-btn.big svg{width:26px;height:26px}
   .fctrl{gap:3px}
-  .fctrl-cap{font-size:10px}
+  .fctrl-cap{font-size:12px}   /* dar ekranda bile 12px altina inme */
   .break-sheet,.flow-prompt{bottom:86px}
   .drawer{max-height:94vh;padding-top:4px}
   .drawer-body{display:flex;flex-wrap:wrap;gap:0 24px}
@@ -412,10 +433,10 @@ a.section-btn{text-decoration:none;box-sizing:border-box}   /* EULA / gizlilik s
 #bg-chips .bg-card-none{background:linear-gradient(160deg,#131a24,#0a0f16)}
 
 /* Mola sayfası güven ipucu */
-.bs-hint{margin:2px 0 0;color:var(--muted);font-size:12px}
+.bs-hint{margin:2px 0 0;color:var(--muted);font-size:12.5px}
 
 /* Seri dondurma notu */
-.freeze-note{margin:-8px 0 0;color:var(--muted);font-size:12px;text-align:center}
+.freeze-note{margin:-8px 0 0;color:var(--muted);font-size:12.5px;text-align:center}
 
 /* Rozetler */
 .badges-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -426,7 +447,7 @@ a.section-btn{text-decoration:none;box-sizing:border-box}   /* EULA / gizlilik s
 }
 .badge.on{opacity:1;filter:none;border-color:rgba(244,205,118,.45);box-shadow:0 0 10px rgba(244,205,118,.10)}
 .badge .b-emoji{font-size:20px;line-height:1}
-.badge .b-name{font-size:10px;color:var(--muted)}
+.badge .b-name{font-size:12px;color:var(--muted)}
 .badge.on .b-name{color:var(--text)}
 
 /* Yedek satırı */
@@ -476,10 +497,78 @@ a.section-btn{text-decoration:none;box-sizing:border-box}   /* EULA / gizlilik s
 .shop-list li{display:flex;align-items:center;gap:12px;padding:11px 4px;
   border-bottom:1px solid var(--line)}
 .shop-list li:last-child{border-bottom:none}
-.shop-ic{font-size:22px;line-height:1;width:28px;text-align:center;flex-shrink:0}
+.shop-ic{font-size:22px;line-height:1;width:28px;text-align:center;flex-shrink:0;overflow:hidden;white-space:nowrap}
 .shop-name{flex:1;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .shop-buy{background:rgba(244,205,118,.16);border:1px solid rgba(244,205,118,.42);
+  min-height:44px;   /* DESIGN.md: dokunma hedefi 44px */
   color:#f4cd76;font-size:13px;font-weight:650;padding:7px 13px;border-radius:999px;
   cursor:pointer;white-space:nowrap;flex-shrink:0}
 .shop-buy.off{opacity:.42}
 .shop-own{color:var(--muted);font-size:12.5px;white-space:nowrap;flex-shrink:0}
+
+/* ===== Bahçem — dekore edilebilir izometrik alan (2026-08-27) ===== */
+#view-plot{display:flex;flex-direction:column;height:100%}
+.plot-cv{flex:1;width:100%;display:block;touch-action:none;cursor:grab}
+.plot-cv:active{cursor:grabbing}
+.plot-hint{margin:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  text-align:center;color:var(--muted);font-size:12.5px}
+
+/* ===== Dükkân sekmeleri + zemin/palet örnekleri (2026-08-27) ===== */
+.shop-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px;padding-bottom:2px;scrollbar-width:none}
+.shop-tabs::-webkit-scrollbar{display:none}
+.shop-tab{flex:0 0 auto;background:transparent;border:1px solid var(--line);color:var(--muted);
+  font-size:13px;font-weight:600;padding:7px 13px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.shop-tab.on{background:rgba(244,205,118,.14);border-color:rgba(244,205,118,.42);color:#f4cd76}
+.shop-sw{display:inline-block;width:22px;height:22px;border-radius:7px;
+  border:1px solid rgba(255,255,255,.22);vertical-align:middle}
+.shop-use{background:transparent;border:1px solid rgba(110,240,214,.45);color:#6ef0d6;
+  font-size:13px;font-weight:650;padding:7px 13px;border-radius:999px;cursor:pointer;
+  white-space:nowrap;flex-shrink:0}
+
+/* ===================================================================== */
+/* ===== 2026-08-28: rakip denetiminden gelen yeni ekranlar ============ */
+/* ===================================================================== */
+
+/* ③ Etiket çipleri (ana ekran + istatistik) */
+.tag-chip{display:inline-flex;align-items:center;gap:6px;background:var(--card);
+  border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-size:13.5px;
+  font-weight:600;color:var(--muted);white-space:nowrap;cursor:pointer}
+.tag-chip .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.tag-chip.on{color:var(--text);border-color:rgba(110,240,214,.45);background:var(--card-2)}
+.tag-chip.add{border-style:dashed;opacity:.75}
+
+/* ③ Etiket dağılımı — yatay oranlı çubuklar */
+.tag-breakdown{display:flex;flex-direction:column;gap:9px}
+.tb-row{display:flex;align-items:center;gap:10px;font-size:13px}
+.tb-name{width:96px;flex-shrink:0;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tb-bar{flex:1;height:9px;border-radius:999px;background:var(--card-2);overflow:hidden}
+.tb-fill{display:block;height:100%;border-radius:999px;transition:width .5s var(--ease)}
+.tb-val{width:62px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;flex-shrink:0}
+
+/* ② Günlük kart: check-in + görevler + aylık mücadele */
+.daily-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px;display:flex;flex-direction:column;gap:12px}
+.dc-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.dc-head b{font-size:15px}
+.dc-sub{color:var(--muted);font-size:12.5px}
+.dc-btn{background:rgba(244,205,118,.16);border:1px solid rgba(244,205,118,.42);color:#f4cd76;
+  font-size:13px;font-weight:650;padding:7px 15px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.dc-btn:disabled{opacity:.45;cursor:default}
+.dc-quest{display:flex;align-items:center;gap:10px;font-size:13px}
+.dc-quest .qt{flex:1;color:var(--muted)}
+.dc-quest.bitti .qt{color:var(--text)}
+.dc-bar{height:6px;border-radius:999px;background:var(--card-2);overflow:hidden;margin-top:5px}
+.dc-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));border-radius:999px}
+.dc-sep{height:1px;background:var(--line);margin:2px 0}
+
+/* ④ Dönem sekmeleri */
+.period-tabs{display:flex;gap:6px}
+.ptab{flex:1;background:transparent;border:1px solid var(--line);color:var(--muted);
+  font-size:13px;font-weight:600;padding:8px 0;border-radius:999px;cursor:pointer;
+  min-height:44px}   /* DESIGN.md: dokunma hedefi 44px */
+.ptab.on{background:rgba(110,240,214,.14);border-color:rgba(110,240,214,.42);color:var(--accent)}
+.period-total{margin:-6px 0 0;text-align:center;color:var(--muted);font-size:12.5px}
+
+/* ④ Saat grafiğinde etiketler sıkışmasın */
+.week-chart.saatlik .week-bar .day{font-size:9px}
+.week-chart.saatlik{gap:3px}

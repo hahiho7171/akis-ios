@@ -35,8 +35,28 @@ const AkisGarden = (() => {
 
   const SKY_TOP=[13,26,36], SKY_HZ=[26,64,66], HAZE=[42,74,74];
   const GROUND_TOP=[28,74,50], GROUND_BOT=[16,50,32];
-  const FOLIAGE=[[46,93,67],[78,156,104],[62,124,86],[90,170,118]];
-  const FOL_LIGHT=[163,232,175];   // ay tarafındaki ışık
+  /* Ağaç renk paletleri — Süs Dükkânı'ndan jetonla açılır (2026-08-27).
+     Her palet: 4 yaprak tonu + o palete uygun ışık rengi. */
+  const PALET={
+    forest:{y:[[46,93,67],[78,156,104],[62,124,86],[90,170,118]],   i:[163,232,175]},
+    sakura:{y:[[196,116,150],[238,172,198],[214,142,176],[248,198,216]], i:[255,214,232]},
+    autumn:{y:[[168,92,44],[224,146,64],[198,118,50],[238,176,92]], i:[255,214,150]},
+    frost: {y:[[92,138,168],[148,192,216],[118,166,194],[178,216,234]], i:[214,240,252]},
+    golden:{y:[[168,140,52],[224,192,86],[198,168,66],[240,214,124]], i:[255,238,168]},
+    mor:   {y:[[104,74,150],[152,116,204],[128,94,178],[178,146,224]], i:[220,200,252]}
+  };
+  let FOLIAGE=PALET.forest.y;
+  let FOL_LIGHT=PALET.forest.i;   // ay tarafındaki ışık
+  function paletUygula(id){
+    const p=PALET[id]||PALET.forest;
+    if(FOLIAGE===p.y) return false;
+    FOLIAGE=p.y; FOL_LIGHT=p.i; sprites.clear();   // önbellek eski renkte kalmasın
+    return true;
+  }
+  function aktifPalet(){
+    try{ return (typeof AkisStats!=='undefined' && AkisStats.activePalette) ? AkisStats.activePalette() : 'forest'; }
+    catch(e){ return 'forest'; }
+  }
   const PALE_GRAY=[110,118,112];   // "Derin Odak" bozulunca soluk ağaç
   const MOON_X=0.72;               // ay konumu → ışık sağ üstten gelir
 
@@ -44,7 +64,12 @@ const AkisGarden = (() => {
   function unmount(cv){ active.delete(cv); if(!active.size&&raf){cancelAnimationFrame(raf);raf=null;} }
   function update(cv,items){ if(active.has(cv)){ const v=active.get(cv); v.items=items||[]; v.layout=null; } }
 
-  function loop(){ raf=requestAnimationFrame(loop); const time=(performance.now()-t0)/1000; active.forEach((v,cv)=>draw(cv,v,time)); }
+  function loop(){
+    raf=requestAnimationFrame(loop);
+    paletUygula(aktifPalet());
+    const time=(performance.now()-t0)/1000;
+    active.forEach((v,cv)=>draw(cv,v,time));
+  }
 
   /* ---------------------------------------------------------------- SAHNE */
   function draw(cv,v,time){
@@ -438,5 +463,25 @@ const AkisGarden = (() => {
     lines.forEach((l,i)=>ctx.fillText(l,cx,startY+i*lh));
   }
 
-  return { mount, unmount, update };
+  /* Bahçe ekranı (plot.js) aynı ağaç ve süsleri kullansın diye dışa açılır —
+     iki yerde iki farklı ağaç çizmek görsel tutarsızlık yaratırdı. */
+  function agacSprite(st, seed, pale, S, depth, dpr){ return sprite(st, seed, pale, S, depth, dpr); }
+  function susCiz(ctx, id, x, y, S, time){
+    if(id==='flowers')      decoFlowers(ctx,x,y,S,time||0);
+    else if(id==='rock')    decoRock(ctx,x,y,S);
+    else if(id==='lantern') decoLantern(ctx,x,y,S,time||0);
+    else if(id==='bench')   decoBench(ctx,x,y,S);
+    else if(id==='pond')    decoPond(ctx,x,y,S,time||0);
+    else if(id==='fox')     decoFox(ctx,x,y,S);
+    else return false;
+    return true;
+  }
+  return { mount, unmount, update, agacSprite, susCiz, evre:stage,
+           paletUygula, aktifPalet, paletler:()=>Object.keys(PALET),
+           paletRenk:(id)=>((PALET[id]||PALET.forest).y[1].slice()) };
 })();
+
+/* `const` ile tanımlanan modül global nesneye YAZILMAZ (yalnız `var`/fonksiyon yazar).
+   Kodun her yerinde `window.AkisGarden && ...` biçiminde kontroller var; bu bağlama olmadan
+   hepsi sessizce false dönüyordu (2026-08-27'de ölçülerek bulundu). */
+try{ window.AkisGarden = AkisGarden; }catch(e){}

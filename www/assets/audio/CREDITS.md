@@ -17,13 +17,31 @@ Tüm sesler ticari kullanıma uygun; atıf zorunlu değil (yine de kayıt için 
 
 ## Ortam sesleri — MİXER (birlikte çalınabilir, 2026-07-23)
 Gerçek CC0 kayıtlar (Pixabay Content License — ticari serbest, atıf gerekmez), kusursuz loop (kuyruk→baş crossfade, ffmpeg):
-- **amb-rain.mp3** — Yağmur (Pixabay)
+- **amb-rain.mp3** — Yağmur, CAM YAĞMURU (Pixabay · "Rain (on the window)" by DonRain, 60 sn)
+  🔄 2026-08-29'da değiştirildi: eski kayıtta tiz enerji ana sesin yalnız 5 dB altındaydı
+  (ölçüldü), kulakta sürekli bir hışırtı bırakıyordu. Yeni kayıtta bu fark 21 dB.
+  Eski dosya `_arsiv/amb-rain-eski.mp3`.
 - **amb-fire.mp3** — Şömine / çıtırdayan ateş (Pixabay)
 - **amb-birds.mp3** — Kuş / orman kuşları (Pixabay)
 - **amb-forest.mp3** — Orman doğası (Pixabay)
 - **amb-tick.mp3** — Gerçek saat tik-tak (Pixabay)
 
-Brown / White / Pink noise → hâlâ Web Audio API ile koddan üretiliyor (dosya yok).
+## 2026-08-29 — SENTEZ SESLER KALDIRILDI, HEPSİ GERÇEK KAYIT
+Kullanıcı "farklı isimler ama hep aynı sesler" dedi; doğruydu. Deniz dalgası,
+rüzgâr, gece böcekleri, kafe uğultusu ve brown/white/pink noise KODDAN
+üretiliyordu — hepsi tek bir gürültü üretecinin filtresi değiştirilmiş hâliydi.
+Hepsi kaldırıldı. Yeni gerçek kayıtlar (Pixabay Content License, 60 sn):
+- **amb-wave.mp3** — Kıyıya vuran deniz dalgası
+- **amb-wind.mp3** — Uluyan kış rüzgârı ("Howling Wind and Snow")
+- **amb-night.mp3** — Cırcır böcekli gece ortamı
+- **amb-stream.mp3** — Akarsu (27 sn) · `cafe` yerine geldi; jetonunu kafeye
+  vermiş kullanıcılar bunu ücretsiz alır (stats.js)
+
+Kaldırılanlar: brown noise · white noise · pink noise · kafe uğultusu · fırtına
+(fırtına adayları kullanıcı tarafından beğenilmedi, hiç eklenmedi).
+
+⚠️ Ses dosyası değiştirirsen `www/js/audio.js › SES_SURUM` damgasını da yükselt;
+yoksa güncelleyen kullanıcı eski sesi önbellekten dinlemeye devam eder.
 
 ## Arka plan videoları (assets/video/*.mp4, 2026-07-23)
 Gerçek CC0 stok video (Pixabay Content License — ticari serbest, atıf gerekmez), kusursuz loop + sessiz + küçültülmüş (ffmpeg):

@@ -1,5 +1,16 @@
 {
   "appId": "com.asimgokcek.akis",
   "appName": "Akora",
-  "webDir": "www"
+  "webDir": "www",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": ["password", "google.com", "apple.com"]
+    },
+    "CapacitorUpdater": {
+      "autoUpdate": false,
+      "appReadyTimeout": 20000,
+      "responseTimeout": 20
+    }
+  }
 }

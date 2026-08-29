@@ -3,48 +3,76 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
-  <meta name="theme-color" content="#0e1116" />
+  <meta name="theme-color" content="#86e8f3" />
   <title>Akora — Odak</title>
   <link rel="icon" href="assets/favicon.png" sizes="32x32" />
   <link rel="icon" href="assets/icon-192.png" sizes="192x192" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=2.8.1" />
+  <link rel="stylesheet" href="css/anaekran.css?v=2.8.1" />
 </head>
 <body>
   <div id="app">
 
     <!-- ===================== HOME / KURULUM ===================== -->
-    <section id="view-home" class="view active">
-      <header class="home-top">
-        <h1 class="brand">Akora</h1>
-        <div class="top-actions">
-          <button id="btn-lang" class="icon-btn" title="Language" aria-label="Language">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>
+    <section id="view-home" class="view active ana">
+
+      <!-- ---------- gökyüzü: manzara + ağaç ---------- -->
+      <div class="gok">
+        <span class="bulut b1"></span>
+        <span class="bulut b2"></span>
+
+        <header class="ust">
+          <button id="btn-menu" class="ikon" aria-label="Menu">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
           </button>
-          <button id="btn-stats" class="icon-btn" title="İstatistikler" aria-label="İstatistikler">
-            <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+          <span class="bosluk"></span>
+          <button id="btn-jeton" class="jeton" aria-label="Jeton"><i></i><b id="jeton-n">0</b></button>
+        </header>
+
+        <!-- iki açılır çubuk: seansın kategorisi + arka plan manzarası -->
+        <div class="ust-cubuk-sar">
+        <div class="ust-cubuklar">
+          <button id="etiket-bar" class="etiket-bar">
+            <span class="nokta" id="etiket-nokta"></span>
+            <b id="etiket-ad" data-i18n="tag_bar">Etiket</b>
+            <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <button id="arkaplan-bar" class="etiket-bar">
+            <svg class="ab-ic" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M4 16l4.5-5 3.5 3.5L15 12l5 5z"/><circle cx="8.5" cy="9.5" r="1.3"/></svg>
+            <b id="arkaplan-ad" data-i18n="label_bg">Arka plan</b>
+            <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
           </button>
         </div>
-      </header>
-
-      <div class="home-body">
-        <p class="tagline" data-i18n="tagline">Sana uyan tempoyu seç. Katı değil, esnek.</p>
-
-        <!-- Reklamsız ol (1 gün muafiyet bitince / abone değilken görünür) -->
-        <button id="premium-cta" class="premium-cta hidden">
-          <span class="pc-spark">✦</span>
-          <span class="pc-text" data-i18n="premium_cta">Reklam istemiyor musun? Premium ile reklamsız kullan</span>
+        <!-- Seansta bildirimleri sustur — açıkken mavi yanar. Aramalar susturulmaz.
+             Kaydırılan çubuk satırının DIŞINDA: uzun etiket adı onu ekrandan itmesin. -->
+        <button id="sessiz-bar" class="sessiz-dugme" role="switch" aria-checked="false"
+                title="Sessiz" aria-label="Sessiz">
+          <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 21h4"/><path d="M3 3l18 18"/></svg>
         </button>
+        </div>
 
-        <!-- Mod seçimi -->
-        <div class="mode-grid" id="mode-grid">
+        <!-- ağaç: kökü tam ufuk çizgisinde durur (bkz. DESIGN.md) -->
+        <div class="agac"><img id="ana-agac" class="e-tree" src="assets/agac/tree.webp" alt="" /></div>
+
+        <svg class="tepeler" viewBox="0 0 400 100" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0 58 L54 30 L104 56 L160 24 L222 58 L284 28 L342 60 L400 38 L400 100 L0 100Z" fill="var(--tepe-uzak)"/>
+          <path d="M0 76 L62 54 L126 78 L194 52 L256 80 L320 56 L400 78 L400 100 L0 100Z" fill="var(--tepe-yakin)"/>
+        </svg>
+      </div>
+
+      <!-- ---------- ufkun ALTINDA duran sayaç kartı ---------- -->
+      <div class="sure-kart">
+        <div class="sure" id="on-sure">25:00</div>
+        <div class="sure-alt" id="on-sure-alt"></div>
+      </div>
+
+      <!-- ---------- beyaz zemin: modlar + başlat ---------- -->
+      <div class="yer">
+        <div class="mod-sar"><div class="modlar" id="mode-grid">
           <button class="mode-card active" data-mode="pomodoro">
             <span class="mode-name" data-i18n="mode_pomodoro">Pomodoro</span>
             <span class="mode-desc" data-i18n="mode_pomodoro_desc">25 dk çalış · 5 dk mola</span>
-          </button>
-          <button class="mode-card" data-mode="fiftytwo">
-            <span class="mode-name" data-i18n="mode_fiftytwo" dir="ltr">52 / 17</span>
-            <span class="mode-desc" data-i18n="mode_fiftytwo_desc">Bilimsel derin tempo</span>
           </button>
           <button class="mode-card" data-mode="flowtime">
             <span class="mode-name" data-i18n="mode_flowtime">Flowtime</span>
@@ -54,72 +82,9 @@
             <span class="mode-name" data-i18n="mode_custom">Kendin Ayarla</span>
             <span class="mode-desc" data-i18n="mode_custom_desc">Süreyi sen belirle</span>
           </button>
-        </div>
+        </div></div>
 
-        <!-- Custom süre ayarı -->
-        <div id="custom-setup" class="custom-setup hidden">
-          <div class="stepper">
-            <label data-i18n="custom_work">Çalışma</label>
-            <div class="stepper-row">
-              <button class="step-btn" data-target="work" data-delta="-5">−</button>
-              <span class="step-val"><b id="work-min">30</b> min</span>
-              <button class="step-btn" data-target="work" data-delta="5">+</button>
-            </div>
-          </div>
-          <div class="stepper">
-            <label data-i18n="custom_break">Mola</label>
-            <div class="stepper-row">
-              <button class="step-btn" data-target="break" data-delta="-1">−</button>
-              <span class="step-val"><b id="break-min">5</b> min</span>
-              <button class="step-btn" data-target="break" data-delta="1">+</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Görev etiketi -->
-        <input id="task-input" class="task-input" type="text" maxlength="40"
-               data-i18n-ph="task_ph" placeholder="Ne üzerine çalışıyorsun? (isteğe bağlı)" />
-
-        <!-- Görsel seçimi -->
-        <div class="visual-picker" id="visual-picker">
-          <span class="picker-label" data-i18n="label_visual">Görsel</span>
-          <div class="visual-chips">
-            <button class="chip active" data-visual="hourglass" data-i18n="vis_hourglass">Kum saati</button>
-            <button class="chip" data-visual="ring" data-i18n="vis_ring">Halka</button>
-            <button class="chip" data-visual="clock" data-i18n="vis_clock">Analog saat</button>
-            <button class="chip" data-visual="digits" data-i18n="vis_digits">Dijital</button>
-          </div>
-        </div>
-
-        <!-- Arka plan videosu (saat stilinden bağımsız — istediğini üstüne koy) -->
-        <div class="visual-picker" id="bg-picker">
-          <span class="picker-label" data-i18n="label_bg">Arka plan</span>
-          <div class="visual-chips" id="bg-chips">
-            <button class="chip active" data-bg="none" data-i18n="bg_none">Yok</button>
-            <button class="chip" data-bg="akvaryum" data-i18n="bg_akvaryum">Akvaryum</button>
-            <button class="chip" data-bg="koi" data-i18n="bg_koi">Koi havuzu</button>
-            <button class="chip" data-bg="sualti" data-i18n="bg_sualti">Su altı</button>
-            <button class="chip" data-bg="okyanus" data-i18n="bg_okyanus">Okyanus</button>
-            <button class="chip" data-bg="selale" data-i18n="bg_selale">Şelale</button>
-            <button class="chip" data-bg="orman" data-i18n="bg_orman">Orman</button>
-            <button class="chip" data-bg="yagmur" data-i18n="bg_yagmur">Yağmurlu cam</button>
-            <button class="chip" data-bg="somine" data-i18n="bg_somine">Şömine</button>
-          </div>
-        </div>
-
-        <!-- Derin Odak: uygulamadan ayrılırsan ağacın solar (opsiyonel taahhüt modu) -->
-        <button id="deep-focus-toggle" class="chip deep-chip">🛡️ <span data-i18n="deep_focus">Derin Odak</span></button>
-
-        <!-- Akış Ormanı (mini) -->
-        <div class="pond-card">
-          <div class="pond-head">
-            <h4>🌳 <span data-i18n="forest_title">Akış Ormanın</span></h4>
-            <span class="pond-count" id="pond-count"></span>
-          </div>
-          <canvas id="pond-mini"></canvas>
-        </div>
-
-        <button id="btn-start" class="start-btn" data-i18n="start">Başla</button>
+        <button id="btn-start" class="basla" data-i18n="start">Başla</button>
       </div>
     </section>
 
@@ -239,80 +204,183 @@
     </div>
 
     <!-- ===================== İSTATİSTİK ===================== -->
+    <!-- ===================== BAHÇEM (dekore edilebilir alan, 2026-08-27) ===================== -->
+    <section id="view-plot" class="view">
+      <header class="home-top">
+        <button id="plot-back" class="icon-btn ghost"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="brand" data-i18n="plot_title">Bahçem</h1>
+        <button id="plot-reset" class="icon-btn ghost" title="Yerleşimi sıfırla">
+          <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/></svg>
+        </button>
+      </header>
+      <canvas id="plot-cv" class="plot-cv"></canvas>
+      <p class="plot-hint" data-i18n="plot_hint">Sürükleyerek taşı · iki parmakla yakınlaştır</p>
+    </section>
+
     <section id="view-stats" class="view">
       <header class="home-top">
         <button id="stats-back" class="icon-btn ghost"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
         <h1 class="brand" data-i18n="stats">İstatistik</h1>
         <span style="width:40px"></span>
       </header>
-      <div class="stats-body">
-        <div class="stat-cards">
-          <div class="stat-card"><span class="stat-num" id="st-today">0</span><span class="stat-lbl" data-i18n="st_today">Bugün (dk)</span></div>
-          <div class="stat-card"><span class="stat-num" id="st-streak">0</span><span class="stat-lbl" data-i18n="st_streak">Seri (gün)</span></div>
-          <div class="stat-card"><span class="stat-num" id="st-total">0</span><span class="stat-lbl" data-i18n="st_total">Toplam (saat)</span></div>
-        </div>
-        <p class="freeze-note" id="freeze-left"></p>
-
-        <!-- Bugünkü oturumlar (tıklanabilir → detay) -->
-        <button id="btn-today-sessions" class="section-btn">
-          <span data-i18n="today_sessions">Bugünkü oturumlar</span>
-          <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
-        </button>
-
-        <!-- Zaman Tüneli: tüm geçmiş, güne göre gruplu (2026-08-27) -->
-        <button id="btn-timeline" class="section-btn">
-          <span data-i18n="timeline_open">Zaman tüneli</span>
-          <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
-        </button>
-
-        <!-- Süs Dükkânı: odak dakikalarıyla kazanılan jetonlar (2026-08-27) -->
-        <button id="btn-shop" class="section-btn">
-          <span data-i18n="shop_open">Süs dükkânı</span>
-          <span class="coin-pill" id="coin-pill">0</span>
-        </button>
-
-        <h4 class="stats-h" data-i18n="last7">Son 7 gün</h4>
-        <div class="week-chart" id="week-chart"></div>
-        <p class="chart-hint" data-i18n="tap_hint_day">Detay için bir güne dokun</p>
-
-        <h4 class="stats-h" data-i18n="badges_title">Başarımlar</h4>
-        <div class="badges-row" id="badges-row"></div>
-
-        <h4 class="stats-h" id="pond-stats-h">🌳 Akış Ormanın</h4>
-        <canvas id="pond-full"></canvas>
-
-        <!-- Nasıl kullanılır / puanla / paylaş -->
-        <div class="support-block">
-          <button id="btn-tour" class="section-btn">
-            <span data-i18n="tour_replay">Nasıl kullanılır?</span>
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.4M12 17h.01"/></svg>
-          </button>
-          <button id="btn-rate" class="section-btn">
-            <span data-i18n="rate_app">Uygulamayı puanla</span>
-            <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.8-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.6l5.9-.8z"/></svg>
-          </button>
-          <button id="btn-share" class="section-btn">
-            <span data-i18n="share_app">Arkadaşına gönder</span>
-            <svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M12 15V3M8 7l4-4 4 4"/></svg>
-          </button>
-          <!-- Apple 3.1.2(c): EULA + gizlilik linkleri uygulama içinden de erişilebilir olmalı. SİLME. -->
-          <a class="section-btn" href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noopener noreferrer">
-            <span data-i18n="premium_terms">Kullanım Koşulları (EULA)</span>
-            <svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
-          </a>
-          <a class="section-btn" href="https://akis-odak-app.web.app/gizlilik" target="_blank" rel="noopener noreferrer">
-            <span data-i18n="premium_privacy">Gizlilik Politikası</span>
-            <svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6z"/></svg>
-          </a>
-        </div>
-
-        <div class="backup-row">
-          <button id="btn-backup" class="section-btn"><span data-i18n="backup_export">Verini dışa aktar</span><svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M12 3v12M8 11l4 4 4-4"/></svg></button>
-          <button id="btn-restore" class="section-btn"><span data-i18n="backup_import">Yedeği geri yükle</span><svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M12 15V3M8 7l4-4 4 4"/></svg></button>
-        </div>
-
-        <button id="btn-reset-stats" class="text-btn" data-i18n="reset_stats">İstatistikleri sıfırla</button>
+      <!-- Bölüm sekmeleri — menüden derin bağlantı da buraya düşer -->
+      <div class="ist-sekme" id="ist-sekme">
+        <button class="isek on" data-bolum="ozet"   data-i18n="ist_ozet">Özet</button>
+        <button class="isek"    data-bolum="orman"  data-i18n="ist_orman">Ormanım</button>
+        <button class="isek"    data-bolum="basari" data-i18n="badges_title">Başarımlar</button>
+        <button class="isek"    data-bolum="gecmis" data-i18n="ist_gecmis">Geçmiş</button>
       </div>
+
+      <div class="stats-body">
+
+        <!-- ================= ÖZET ================= -->
+        <div class="ist-bolum on" data-bolum="ozet">
+          <div class="stat-cards">
+            <div class="stat-card"><span class="stat-num" id="st-today">0</span><span class="stat-lbl" data-i18n="st_today">Bugün (dk)</span></div>
+            <div class="stat-card"><span class="stat-num" id="st-streak">0</span><span class="stat-lbl" data-i18n="st_streak">Seri (gün)</span></div>
+            <div class="stat-card"><span class="stat-num" id="st-total">0</span><span class="stat-lbl" data-i18n="st_total">Toplam (saat)</span></div>
+          </div>
+          <p class="freeze-note" id="freeze-left"></p>
+
+          <div class="period-tabs" id="period-tabs">
+            <button class="ptab on" data-p="gun"   data-i18n="p_day">Gün</button>
+            <button class="ptab"    data-p="hafta" data-i18n="p_week">Hafta</button>
+            <button class="ptab"    data-p="ay"    data-i18n="p_month">Ay</button>
+            <button class="ptab"    data-p="yil"   data-i18n="p_year">Yıl</button>
+          </div>
+          <p class="period-total" id="period-total"></p>
+          <div class="week-chart" id="week-chart"></div>
+          <p class="chart-hint" data-i18n="tap_hint_day">Detay için bir güne dokun</p>
+
+          <h4 class="stats-h" data-i18n="tag_where">Zamanın nereye gidiyor?</h4>
+          <div class="tag-breakdown" id="tag-breakdown"></div>
+        </div>
+
+        <!-- ================= ORMANIM ================= -->
+        <div class="ist-bolum" data-bolum="orman">
+          <h4 class="stats-h" id="pond-stats-h">Akış Ormanın</h4>
+          <canvas id="pond-full"></canvas>
+          <button id="btn-plot" class="section-btn">
+            <span data-i18n="plot_open">Bahçemi aç</span>
+            <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <button id="btn-shop" class="section-btn">
+            <span data-i18n="shop_open">Süs dükkânı</span>
+            <span class="coin-pill" id="coin-pill">0</span>
+          </button>
+        </div>
+
+        <!-- ================= BAŞARIMLAR ================= -->
+        <div class="ist-bolum" data-bolum="basari">
+          <div class="daily-card" id="daily-card"></div>
+          <h4 class="stats-h" data-i18n="badges_title">Başarımlar</h4>
+          <div class="badges-row" id="badges-row"></div>
+        </div>
+
+        <!-- ================= GEÇMİŞ ================= -->
+        <div class="ist-bolum" data-bolum="gecmis">
+          <button id="btn-takvim" class="section-btn">
+            <span data-i18n="takvim_title">Takvim</span>
+            <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <button id="btn-kitaplik" class="section-btn" data-kitaplik="1">
+            <span data-i18n="kitaplik_title">Kitaplığım</span>
+            <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <button id="btn-today-sessions" class="section-btn">
+            <span data-i18n="today_sessions">Bugünkü oturumlar</span>
+            <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <button id="btn-timeline" class="section-btn">
+            <span data-i18n="timeline_open">Zaman tüneli</span>
+            <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===================== TAKVİM (2026-08-28, Aşama D) ===================== -->
+    <section id="view-takvim" class="view">
+      <header class="home-top">
+        <button id="takvim-back" class="icon-btn ghost"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="brand" data-i18n="takvim_title">Takvim</h1>
+        <span style="width:40px"></span>
+      </header>
+
+      <div class="tk-govde">
+        <div class="tk-ay">
+          <button class="tk-ok" id="tk-geri" aria-label="Önceki ay"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <b id="tk-ay-ad">—</b>
+          <button class="tk-ok" id="tk-ileri" aria-label="Sonraki ay"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+        </div>
+
+        <div class="tk-gunadlari" id="tk-gunadlari"></div>
+        <div class="tk-izgara" id="tk-izgara"></div>
+
+        <p class="tk-ay-toplam" id="tk-ay-toplam"></p>
+
+        <!-- Seçilen günün kırılımı -->
+        <div class="tk-detay" id="tk-detay"></div>
+      </div>
+    </section>
+
+    <div class="ak-sheet" data-sheet="hesap">
+      <div class="ak-sheet-ust">
+        <h3 data-i18n="h_hesabim">Hesabım</h3>
+        <button class="ikon" data-sheet-kapat="1" aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="ak-sheet-govde" id="h-govde"></div>
+    </div>
+
+    <div class="ak-sheet" data-sheet="kitap-ekle">
+      <div class="ak-sheet-ust">
+        <h3 data-i18n="kt_ekle">Kitap ekle</h3>
+        <button class="ikon" data-sheet-kapat="1" aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="ak-sheet-govde">
+        <label class="kt-alan">
+          <span data-i18n="kt_ad">Kitap adı</span>
+          <input id="kt-ad" class="giris" type="text" maxlength="80" autocomplete="off" />
+        </label>
+        <label class="kt-alan">
+          <span data-i18n="kt_yazar">Yazar (isteğe bağlı)</span>
+          <input id="kt-yazar" class="giris" type="text" maxlength="60" autocomplete="off" />
+        </label>
+        <label class="kt-alan">
+          <span data-i18n="kt_toplam">Toplam sayfa</span>
+          <input id="kt-toplam" class="giris" type="number" inputmode="numeric" min="1" max="20000" />
+        </label>
+        <p class="kt-hata" id="kt-ekle-hata"></p>
+        <button id="kt-ekle-kaydet" class="kt-birincil" data-i18n="kt_kaydet">Kaydet</button>
+      </div>
+    </div>
+
+    <div class="ak-sheet" data-sheet="kitap-detay">
+      <div class="ak-sheet-ust">
+        <h3 id="kt-detay-baslik">—</h3>
+        <button class="ikon" data-sheet-kapat="1" aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="ak-sheet-govde">
+        <p class="kt-detay-alt" id="kt-detay-alt"></p>
+        <label class="kt-alan">
+          <span data-i18n="kt_guncelle">Kaçıncı sayfadasın?</span>
+          <input id="kt-sayfa-giris" class="giris" type="number" inputmode="numeric" min="0" />
+        </label>
+        <p class="kt-hata" id="kt-detay-hata"></p>
+        <button id="kt-detay-kaydet" class="kt-birincil" data-i18n="kt_kaydet">Kaydet</button>
+        <button id="kt-detay-sil" class="text-btn" data-i18n="kt_sil">Kitabı sil</button>
+      </div>
+    </div>
+
+    <!-- ===================== KİTAPLIĞIM (2026-08-29, Aşama E) ===================== -->
+    <section id="view-kitaplik" class="view">
+      <header class="home-top">
+        <button id="kitaplik-back" class="icon-btn ghost"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="brand" data-i18n="kitaplik_title">Kitaplığım</h1>
+        <span style="width:40px"></span>
+      </header>
+      <div class="kt-govde" id="kt-govde"></div>
     </section>
 
     <!-- ===================== DRAWER ARKA PLANI ===================== -->
@@ -339,17 +407,294 @@
       </div>
     </div>
 
+
+    <!-- ===================== MENÜ ÇEKMECESİ (yeni kabuk) ===================== -->
+    <div id="ak-perde" class="ak-perde"></div>
+
+    <aside id="ak-menu" class="ak-menu">
+      <header class="ak-menu-ust">
+        <div class="mk-ad">
+          <b>Akora</b>
+          <small data-i18n="tagline">Sana uyan tempoyu seç. Katı değil, esnek.</small>
+        </div>
+        <button id="ak-menu-x" class="ikon" aria-label="Kapat">
+          <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </header>
+
+      <div class="ak-menu-govde">
+
+        <!-- Akış Ormanı: canvas YALNIZ çekmece açıkken bağlanır (pil) -->
+        <section class="ak-orman">
+          <div class="ok-ust">
+            <b data-i18n="forest_title">Akış Ormanın</b>
+            <span id="orman-sayi"></span>
+          </div>
+          <canvas id="orman-mini"></canvas>
+        </section>
+
+        <p class="ak-grup" data-i18n="menu_seans">Seans</p>
+        <button class="ak-satir" data-sheet="etiket">
+          <svg viewBox="0 0 24 24"><path d="M20.6 13.4 12 22l-9-9V4a1 1 0 0 1 1-1h9z"/><circle cx="7.5" cy="7.5" r="1.4"/></svg>
+          <span class="ak-ad" data-i18n="tags_title">Etiketler</span>
+        </button>
+        <button class="ak-satir" data-sheet="gorunum">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M4 17l5-6 4 4 3-3 4 5z"/><circle cx="8.5" cy="8.5" r="1.4"/></svg>
+          <span class="ak-ad" data-i18n="menu_saat">Saat stili</span>
+        </button>
+        <button class="ak-satir" data-sheet="arkaplan">
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M4 16l4.5-5 3.5 3.5L15 12l5 5z"/><circle cx="8.5" cy="9.5" r="1.3"/></svg>
+          <span class="ak-ad" data-i18n="label_bg">Arka plan</span>
+        </button>
+        <button class="ak-satir" data-sheet="sure">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg>
+          <span class="ak-ad" data-i18n="menu_sure">Süre</span>
+        </button>
+        <button class="ak-satir" data-sheet="favori">
+          <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.8-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.6l5.9-.8z"/></svg>
+          <span class="ak-ad" data-i18n="fav_title">Favorilerim</span>
+        </button>
+
+        <p class="ak-grup" data-i18n="menu_birikim">Birikimin</p>
+        <button id="btn-stats" class="ak-satir" data-kapat="1" data-ist="ozet">
+          <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+          <span class="ak-ad" data-i18n="stats">İstatistik</span>
+        </button>
+        <button class="ak-satir" data-kapat="1" data-ist="orman">
+          <svg viewBox="0 0 24 24"><path d="M12 21V9M12 9c0-3 2-5 5-5 0 3-2 5-5 5zM12 12c0-3-2-5-5-5 0 3 2 5 5 5z"/></svg>
+          <span class="ak-ad" data-i18n="ist_orman">Ormanım</span>
+        </button>
+        <button class="ak-satir" data-kapat="1" data-ist="basari">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5 7 22l5-2.5L17 22l-1.5-8.5"/></svg>
+          <span class="ak-ad" data-i18n="badges_title">Başarımlar</span>
+        </button>
+        <button class="ak-satir" data-kapat="1" data-takvim="1">
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          <span class="ak-ad" data-i18n="takvim_title">Takvim</span>
+        </button>
+        <button class="ak-satir" data-kapat="1" data-kitaplik="1">
+          <svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2z"/><path d="M8 3v18M19 17H6"/></svg>
+          <span class="ak-ad" data-i18n="kitaplik_title">Kitaplığım</span>
+        </button>
+        <button class="ak-satir" data-kapat="1" data-ist="gecmis">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <span class="ak-ad" data-i18n="timeline_open">Zaman tüneli</span>
+        </button>
+
+        <p class="ak-grup" data-i18n="menu_uygulama">Uygulama</p>
+        <button class="ak-satir" data-sheet="hesap">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
+          <span class="ak-ad" data-i18n="h_hesabim">Hesabım</span>
+        </button>
+        <div id="ak-uygulama">
+        <button id="premium-cta" class="ak-satir premium hidden">
+          <svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.3 5.9.8-4.3 4.1 1 5.8L12 17.3 6.8 20l1-5.8L3.5 9.1l5.9-.8z"/></svg>
+          <span class="ak-ad" data-i18n="premium_cta">Reklam istemiyor musun? Premium ile reklamsız kullan</span>
+        </button>
+        </div>
+
+      </div>
+
+      <!-- Ayarlar en altta (kullanıcı kararı, 2026-08-28) -->
+      <footer class="ak-menu-alt">
+        <button class="ak-satir ayar" data-sheet="ayar">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
+          <span class="ak-ad" data-i18n="menu_ayarlar">Ayarlar</span>
+        </button>
+      </footer>
+    </aside>
+
+    <!-- ===================== ALT SAYFALAR ===================== -->
+
+    <div class="ak-sheet ince" data-sheet="etiket">
+      <div class="ak-sheet-ust">
+        <h3 data-i18n="tags_title">Etiketler</h3>
+        <button class="ikon" data-sheet-kapat="1" aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="ak-sheet-govde">
+        <div class="visual-picker" id="tag-picker">
+          <div class="visual-chips" id="tag-row"></div>
+        </div>
+
+        <!-- "Okuma" seçiliyken kitap listesi burada açılır (2026-08-29 kullanıcı isteği) -->
+        <div id="etiket-kitaplar" class="etiket-kitaplar"></div>
+
+        <div class="visual-picker">
+          <span class="picker-label" data-i18n="menu_gorev">Bu seans ne üzerine?</span>
+          <input id="task-input" class="task-input" type="text" maxlength="40"
+                 data-i18n-ph="task_ph" placeholder="Ne üzerine çalışıyorsun? (isteğe bağlı)" />
+        </div>
+        <button id="etiket-tamam" class="kt-birincil" data-i18n="kaydet_kapat">Kaydet</button>
+      </div>
+    </div>
+
+    <div class="ak-sheet ince" data-sheet="gorunum">
+      <div class="ak-sheet-ust">
+        <h3 data-i18n="menu_saat">Saat stili</h3>
+        <button class="ikon" data-sheet-kapat="1" aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="ak-sheet-govde">
+        <div class="visual-picker" id="visual-picker">
+          <div class="visual-chips">
+            <button class="chip active" data-visual="ring" data-i18n="vis_ring">Halka</button>
+            <button class="chip" data-visual="clock" data-i18n="vis_clock">Analog saat</button>
+            <button class="chip" data-visual="digits" data-i18n="vis_digits">Dijital</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ak-sheet ince" data-sheet="arkaplan">
+      <div class="ak-sheet-ust">
+        <h3 data-i18n="label_bg">Arka plan</h3>
+        <button class="ikon" data-sheet-kapat="1" aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="ak-sheet-govde">
+        <div class="visual-picker" id="bg-picker">
+          <div class="visual-chips bg-izgara" id="bg-chips">
+            <button class="chip active" data-bg="none" data-i18n="bg_none">Yok</button>
+            <button class="chip" data-bg="akvaryum" data-i18n="bg_akvaryum">Akvaryum</button>
+            <button class="chip" data-bg="koi" data-i18n="bg_koi">Koi havuzu</button>
+            <button class="chip" data-bg="sualti" data-i18n="bg_sualti">Su altı</button>
+            <button class="chip" data-bg="okyanus" data-i18n="bg_okyanus">Okyanus</button>
+            <button class="chip" data-bg="selale" data-i18n="bg_selale">Şelale</button>
+            <button class="chip" data-bg="orman" data-i18n="bg_orman">Orman</button>
+            <button class="chip" data-bg="yagmur" data-i18n="bg_yagmur">Yağmurlu cam</button>
+            <button class="chip" data-bg="somine" data-i18n="bg_somine">Şömine</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ak-sheet ince" data-sheet="sure">
+      <div class="ak-sheet-ust">
+        <h3 data-i18n="menu_sure">Süre</h3>
+        <button class="ikon" data-sheet-kapat="1" aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="ak-sheet-govde">
+        <p class="sure-aciklama" data-i18n="sure_aciklama">Kendi tempon: kaç dakika çalışıp kaç dakika mola vereceğini sen belirle.</p>
+        <div id="custom-setup" class="custom-setup">
+          <div class="stepper">
+            <label data-i18n="custom_work">Çalışma</label>
+            <div class="stepper-row">
+              <button class="step-btn" data-target="work" data-delta="-5">&#8722;</button>
+              <span class="step-val"><b id="work-min">30</b> min</span>
+              <button class="step-btn" data-target="work" data-delta="5">+</button>
+            </div>
+          </div>
+          <div class="stepper">
+            <label data-i18n="custom_break">Mola</label>
+            <div class="stepper-row">
+              <button class="step-btn" data-target="break" data-delta="-1">&#8722;</button>
+              <span class="step-val"><b id="break-min">5</b> min</span>
+              <button class="step-btn" data-target="break" data-delta="1">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ak-sheet ince" data-sheet="favori">
+      <div class="ak-sheet-ust">
+        <h3 data-i18n="fav_title">Favorilerim</h3>
+        <button class="ikon" data-sheet-kapat="1" aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="ak-sheet-govde">
+        <div class="visual-picker" id="fav-picker">
+          <div class="visual-chips" id="fav-row"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ak-sheet" data-sheet="ayar">
+      <div class="ak-sheet-ust">
+        <h3 data-i18n="menu_ayarlar">Ayarlar</h3>
+        <button class="ikon" data-sheet-kapat="1" aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="ak-sheet-govde">
+
+        <p class="ak-alt-baslik" data-i18n="menu_seans">Seans</p>
+        <button id="deep-focus-toggle" class="chip deep-chip">&#128737;&#65039; <span data-i18n="deep_focus">Derin Odak</span></button>
+        <!-- ⑪ Aşan süreyi say · ⑩ Günün başlangıç saati (2026-08-28) -->
+        <div class="backup-row">
+          <button id="set-overtime" class="section-btn">
+            <span><span data-i18n="set_overtime">Aşan süreyi say</span>
+              <small class="dc-sub" style="display:block" data-i18n="set_overtime_h">Süre dolunca sayaç durmaz.</small></span>
+            <span class="coin-pill" id="set-overtime-v">—</span>
+          </button>
+          <button id="set-dnd" class="section-btn">
+            <span><span data-i18n="set_dnd">Seansta sessizlik</span>
+              <small class="dc-sub" style="display:block" data-i18n="set_dnd_h">Odak boyunca Rahatsız Etme açılır.</small></span>
+            <span class="coin-pill" id="set-dnd-v">—</span>
+          </button>
+          <button id="set-daystart" class="section-btn">
+            <span><span data-i18n="set_daystart">Günün başlangıç saati</span>
+              <small class="dc-sub" style="display:block" data-i18n="set_daystart_h">Gece geç çalışırsan geçerli.</small></span>
+            <span class="coin-pill" id="set-daystart-v">00:00</span>
+          </button>
+        </div>
+
+        <div class="backup-row">
+          <button id="btn-backup" class="section-btn"><span data-i18n="backup_export">Verini dışa aktar</span><svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M12 3v12M8 11l4 4 4-4"/></svg></button>
+          <button id="btn-restore" class="section-btn"><span data-i18n="backup_import">Yedeği geri yükle</span><svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M12 15V3M8 7l4-4 4 4"/></svg></button>
+        </div>
+
+        <button id="btn-reset-stats" class="text-btn" data-i18n="reset_stats">İstatistikleri sıfırla</button>
+
+        <p class="ak-alt-baslik" data-i18n="menu_uygulama">Uygulama</p>
+        <button id="btn-lang" class="section-btn">
+          <span data-i18n="lang_title">Dil</span>
+          <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+        <!-- Nasıl kullanılır / puanla / paylaş -->
+        <div class="support-block">
+          <button id="btn-tour" class="section-btn">
+            <span data-i18n="tour_replay">Nasıl kullanılır?</span>
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.4M12 17h.01"/></svg>
+          </button>
+          <button id="btn-rate" class="section-btn">
+            <span data-i18n="rate_app">Uygulamayı puanla</span>
+            <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.8-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.6l5.9-.8z"/></svg>
+          </button>
+          <button id="btn-share" class="section-btn">
+            <span data-i18n="share_app">Arkadaşına gönder</span>
+            <svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M12 15V3M8 7l4-4 4 4"/></svg>
+          </button>
+          <!-- Apple 3.1.2(c): EULA + gizlilik linkleri uygulama içinden de erişilebilir olmalı. SİLME. -->
+          <a class="section-btn" href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noopener noreferrer">
+            <span data-i18n="premium_terms">Kullanım Koşulları (EULA)</span>
+            <svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
+          </a>
+          <a class="section-btn" href="https://akis-odak-app.web.app/gizlilik" target="_blank" rel="noopener noreferrer">
+            <span data-i18n="premium_privacy">Gizlilik Politikası</span>
+            <svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6z"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
   </div>
 
-  <script src="js/i18n.js"></script>
-  <script src="js/audio.js"></script>
-  <script src="js/visuals.js"></script>
-  <script src="js/ads.js"></script>
-  <script src="js/premium.js"></script>
-  <script src="js/timer.js"></script>
-  <script src="js/stats.js"></script>
-  <script src="js/garden.js"></script>
-  <script src="js/notify.js"></script>
-  <script src="js/app.js"></script>
+  <!-- 🚨 TEST SÜRÜMÜ TOHUMU — mağaza derlemesinden önce bu satır SİLİNİR -->
+  <!-- 🚨 OTA EN BAŞTA: notifyAppReady() gecikirse Capgo yeni paketi geri alır -->
+  <script src="js/ota.js?v=2.8.1"></script>
+  <script src="js/i18n.js?v=2.8.1"></script>
+  <script src="js/audio.js?v=2.8.1"></script>
+  <script src="js/visuals.js?v=2.8.1"></script>
+  <script src="js/ads.js?v=2.8.1"></script>
+  <script src="js/premium.js?v=2.8.1"></script>
+  <script src="js/timer.js?v=2.8.1"></script>
+  <script src="js/stats.js?v=2.8.1"></script>
+  <script src="js/garden.js?v=2.8.1"></script>
+  <script src="js/plot.js?v=2.8.1"></script>
+  <script src="js/push.js?v=2.8.1"></script>
+  <script src="js/notify.js?v=2.8.1"></script>
+  <script src="js/app.js?v=2.8.1"></script>
+  <script src="js/anaekran.js?v=2.8.1"></script>
+  <script src="js/takvim.js?v=2.8.1"></script>
+  <script src="js/kitaplik.js?v=2.8.1"></script>
+  <script src="js/guncelleme.js?v=2.8.1"></script>
+  <script src="js/hesap.js?v=2.8.1"></script>
+  <script src="js/degerlendirme.js?v=2.8.1"></script>
 </body>
 </html>

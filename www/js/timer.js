@@ -13,6 +13,14 @@ const AkisTimer = (() => {
   let completedWork=0;
   let dynBreakSec=300;         // flowtime için hesaplanan mola
   let handle=null;
+  /* ⑪ AŞILAN SÜREYİ SAY (2026-08-28, rakip denetimi):
+     Süre dolduğunda sayaç durmak yerine yukarı saymaya devam eder; kullanıcı "biraz daha" derse
+     o fazladan dakikalar da kaydedilir. Kapalıyken eski davranış (dolunca dur) aynen sürer. */
+  let asaniSay=false, asimBasladi=false;
+  function setOvertime(v){ asaniSay=!!v; }
+  function overtimeOn(){ return asaniSay; }
+  function inOvertime(){ return asimBasladi; }
+
   const cb={tick:[],phaseEnd:[],phaseStart:[]};
 
   function defaultCfg(mode){
@@ -30,7 +38,7 @@ const AkisTimer = (() => {
   function reset(){ stopLoop(); completedWork=0; setupPhase('work'); }
 
   function setupPhase(p){
-    phase=p; elapsed=0;
+    phase=p; elapsed=0; asimBasladi=false;
     countUp = (p==='work' && cfg.countUp);
     if(p==='work')       targetSec=cfg.workSec;
     else if(p==='long')  targetSec=cfg.longBreakSec||cfg.breakSec;
@@ -39,10 +47,11 @@ const AkisTimer = (() => {
   }
 
   function snapshot(){
-    const remaining = countUp ? elapsed : Math.max(0,targetSec-elapsed);
+    const asimda = asimBasladi && !countUp;
+    const remaining = countUp ? elapsed : (asimda ? (elapsed-targetSec) : Math.max(0,targetSec-elapsed));
     const frac = countUp ? null : (targetSec>0 ? Math.min(1,elapsed/targetSec) : 0);
     return {phase,running,countUp,elapsed,remaining,targetSec,frac,
-            completedWork,longEvery:cfg.longEvery,mode:cfg.mode};
+            completedWork,longEvery:cfg.longEvery,mode:cfg.mode, overtime:asimda};
   }
 
   function loop(){
@@ -50,6 +59,12 @@ const AkisTimer = (() => {
     const dt=(now-lastTs)/1000; lastTs=now;
     elapsed+=dt;
     if(!countUp && elapsed>=targetSec){
+      if(asaniSay && phase==='work'){
+        // hedefi geçti ama sayaç DURMUYOR — bir kez phaseEnd haber ver, sonra yukarı say
+        if(!asimBasladi){ asimBasladi=true; emit('tick', snapshot()); emit('phaseEnd', phase, snapshot()); }
+        else emit('tick', snapshot());
+        return;
+      }
       elapsed=targetSec; running=false; stopLoop();
       emit('tick', snapshot());
       emit('phaseEnd', phase, snapshot());
@@ -92,21 +107,51 @@ const AkisTimer = (() => {
   function extend(sec){        // "Akıştaysan +5 dk"
     if(countUp) return;
     if(phase!=='work') return; // bayat flow kartından molaya +5 dk eklenmesin
-    targetSec+=sec; running=true; startLoop();
+    targetSec+=sec; asimBasladi=false; running=true; startLoop();
   }
 
   /* Kullanıcının seçtiği süreyle mola başlat (Mola butonu). Geri sayımlı, sabit süre. */
   function customBreak(sec){
     stopLoop();
     if(phase==='work') completedWork++;   // Mola butonu da döngüyü ilerletsin (uzun mola + nokta göstergesi çalışsın)
-    phase='break'; elapsed=0; countUp=false; targetSec=Math.max(30,sec);
+    phase='break'; elapsed=0; asimBasladi=false; countUp=false; targetSec=Math.max(30,sec);
     running=true;
     emit('phaseStart', phase, snapshot());
     startLoop();
     emit('tick', snapshot());
   }
 
+  /* ---- OTURUM KALICILIĞI (2026-08-28) ----
+     Android arka plandaki WebView'i öldürebiliyor: uygulama yeniden açılınca sayaç sıfırdan
+     başlıyor, bildirim çubuğundaki satır ise ESKİ bitiş saatini gösteriyordu ("süre yanlış").
+     Bu iki fonksiyon durumu dışarı verir / geri alır; kaydı app.js localStorage'a yazar. */
+  function durum(){
+    return { cfg:Object.assign({},cfg), phase, running, countUp,
+             targetSec, elapsed, completedWork, dynBreakSec, asimBasladi };
+  }
+  function geriYukle(d){
+    if(!d || !d.cfg) return false;
+    stopLoop();
+    cfg = Object.assign(defaultCfg(d.cfg.mode||'pomodoro'), d.cfg);
+    phase = d.phase || 'work';
+    countUp = !!d.countUp;
+    targetSec = +d.targetSec || 0;
+    elapsed = Math.max(0, +d.elapsed || 0);
+    completedWork = +d.completedWork || 0;
+    dynBreakSec = +d.dynBreakSec || 300;
+    asimBasladi = !!d.asimBasladi;
+    running = false;
+    emit('tick', snapshot());
+    return true;
+  }
+
   return { on, configure, reset, start, pause, resume, toggle,
-           finishCurrent, goNext, extend, customBreak, snapshot,
+           finishCurrent, goNext, extend, customBreak, snapshot, durum, geriYukle,
+           setOvertime, overtimeOn, inOvertime,
            get phase(){return phase;}, get running(){return running;} };
 })();
+
+/* `const` ile tanımlanan modül global nesneye YAZILMAZ (yalnız `var`/fonksiyon yazar).
+   Kodun her yerinde `window.AkisTimer && ...` biçiminde kontroller var; bu bağlama olmadan
+   hepsi sessizce false dönüyordu (2026-08-27'de ölçülerek bulundu). */
+try{ window.AkisTimer = AkisTimer; }catch(e){}

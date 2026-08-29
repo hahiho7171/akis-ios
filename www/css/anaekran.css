@@ -1,0 +1,911 @@
+/* ============================================================
+   DOKUNMA HEDEFI 44 · 2026-08-29
+   `scripts/denetim_ekran.mjs` her ekrani olcup 35-39px dokunma
+   hedefleri ve 11-11.5px yazilar buldu. DESIGN.md sozlesmesi:
+   dokunma hedefi >= 44x44, en kucuk tip rolu (`kucuk`) 12.5px.
+   Asagidaki min-height'lar ve +1px'ler o sozlesmeyi geri getiriyor;
+   gorsel boyut degismiyor, yalnizca dokunulabilir alan buyuyor.
+   ============================================================ */
+/* ============================================================
+   AKORA — ANA EKRAN + MENÜ  ("Açık Gökyüzü" görsel dünyası)
+   Sözleşme: /DESIGN.md  · tokenlar: .impeccable/design.json
+   Kural: manzaraya bağlı her renk --gok-h'ten türetilir;
+          beyaz zemin ve #0cd5ed kimlik rengi ASLA dönmez.
+   ============================================================ */
+
+:root{
+  /* manzara sürücüsü — seçilen arka plan videosuna göre JS bunu döndürür */
+  --gok-h: 186;
+  --gok-s: 82%;
+
+  --gok-1: hsl(var(--gok-h) var(--gok-s) 74%);
+  --gok-2: hsl(var(--gok-h) calc(var(--gok-s) - 12%) 86%);
+  --gok-3: hsl(var(--gok-h) calc(var(--gok-s) - 26%) 95%);
+  --tepe-uzak:  hsl(var(--gok-h) 42% 82%);
+  --tepe-yakin: hsl(var(--gok-h) 34% 91%);
+
+  --zemin:   #ffffff;
+  --zemin-2: #f5f9fa;
+  --cizgi:   #deebed;
+
+  --metin:     #192c33;
+  --metin-2:   #5b737b;
+  --gok-metin: #183844;
+
+  --marka:          #0cd5ed;
+  --marka-orta:     #0e9eb4;
+  --marka-koyu:     #077283;
+  --marka-cok-acik: #e8fbfd;
+  --buton-metin:    #092c39;
+  --amber:          #eda63c;
+  --amber-koyu:     #9a6410;
+  --basari:         #0d7a51;
+  --tehlike-2:      #c23a4b;
+
+  --r-sm:12px; --r-md:16px; --r-lg:22px; --r-xl:28px; --r-hap:999px;
+
+  --golge-yuzey: 0 3px 10px hsl(196 40% 38% / .12);
+  --golge-kart:  0 14px 38px hsl(196 40% 28% / .15);
+  --golge-buton: 0 10px 26px hsl(188 80% 28% / .34);
+}
+
+/* ============ ANA EKRAN ============ */
+
+#view-home.ana{
+  padding:0;                       /* gökyüzü durum çubuğunun altına uzar */
+  background:var(--zemin);
+  color:var(--metin);
+  overflow:hidden;
+}
+
+/* ---- gökyüzü yarısı ---- */
+.ana .gok{
+  position:relative;flex:0 0 55%;min-height:0;
+  display:flex;flex-direction:column;
+  background:linear-gradient(180deg,var(--gok-1) 0%,var(--gok-2) 52%,var(--gok-3) 100%);
+}
+.ana .gok::before{                 /* güneş hâlesi */
+  content:"";position:absolute;top:-14%;right:-10%;width:62%;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle,hsl(48 100% 92% / .85),transparent 66%);pointer-events:none;
+}
+.ana .bulut{position:absolute;border-radius:999px;background:hsl(0 0% 100% / .62);pointer-events:none}
+.ana .bulut::after{content:"";position:absolute;border-radius:999px;background:inherit}
+.ana .b1{width:88px;height:24px;top:47%;left:9%}
+.ana .b1::after{width:46px;height:38px;top:-16px;left:20px}
+.ana .b2{width:64px;height:19px;top:19%;right:9%;background:hsl(0 0% 100% / .48)}
+.ana .b2::after{width:34px;height:28px;top:-12px;left:14px}
+.ana .tepeler{position:absolute;left:0;right:0;bottom:-1px;width:100%;height:32%;display:block}
+
+/* üst çubuk */
+.ana .ust{
+  position:relative;z-index:3;display:flex;align-items:center;gap:12px;
+  padding:calc(env(safe-area-inset-top) + 14px) 18px 0;color:var(--gok-metin);
+}
+.ana .ikon{
+  width:44px;height:44px;display:grid;place-items:center;border-radius:15px;
+  background:hsl(0 0% 100% / .58);border:1px solid hsl(0 0% 100% / .8);
+  box-shadow:var(--golge-yuzey);color:var(--gok-metin);cursor:pointer;padding:0;
+}
+.ana .ikon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.ana .bosluk{flex:1}
+.ana .jeton{
+  display:flex;align-items:center;gap:7px;padding:9px 15px 9px 10px;border-radius:var(--r-hap);
+  min-height:44px;   /* DESIGN.md: dokunma hedefi 44px */
+  background:hsl(0 0% 100% / .62);border:1px solid hsl(0 0% 100% / .85);color:var(--gok-metin);
+  font-size:14px;font-weight:650;font-variant-numeric:tabular-nums;
+  box-shadow:var(--golge-yuzey);cursor:pointer;
+}
+.ana .jeton i{width:18px;height:18px;border-radius:50%;display:block;
+  background:radial-gradient(circle at 34% 30%,#ffdd8e,var(--amber) 62%,#c9821f)}
+
+/* etiket seçici (açılır çubuk) */
+.ana .etiket-bar{
+  position:relative;z-index:3;margin:16px 18px 0;width:fit-content;max-width:calc(100% - 36px);
+  display:flex;align-items:center;gap:10px;padding:12px 17px;border-radius:var(--r-hap);
+  background:hsl(0 0% 100% / .72);border:1px solid hsl(0 0% 100% / .9);color:var(--gok-metin);
+  box-shadow:0 4px 14px hsl(196 40% 38% / .14);cursor:pointer;
+  transition:background .18s var(--ease);
+}
+.ana .etiket-bar:active{background:#fff}
+.ana .etiket-bar .nokta{width:9px;height:9px;border-radius:50%;background:#d4477a;flex:0 0 auto}
+.ana .etiket-bar b{font-size:15px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ana .etiket-bar svg{width:15px;height:15px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;opacity:.5}
+
+/* ağaç: kökü tam ufuk çizgisinde durur */
+.ana .agac{position:relative;z-index:2;flex:1;min-height:0;display:grid;place-items:end center;padding:6px 18px 0}
+.ana .agac img{
+  max-width:min(52vw,215px);max-height:100%;width:auto;height:auto;display:block;margin-bottom:-6px;
+  filter:drop-shadow(0 16px 26px hsl(196 46% 30% / .26));
+  animation:ak-sup 9s var(--ease) infinite;
+}
+.ana .agac img.e-sprout {max-width:min(30vw,124px)}
+.ana .agac img.e-sapling{max-width:min(40vw,168px)}
+.ana .agac img.e-tree   {max-width:min(52vw,215px)}
+.ana .agac img.e-bigtree{max-width:min(60vw,248px)}
+@keyframes ak-sup{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+/* ---- ufuk çizgisinin altındaki sayaç kartı ---- */
+.ana .sure-kart{
+  position:relative;z-index:4;flex:0 0 auto;margin:18px auto 0;width:fit-content;
+  background:var(--zemin);border-radius:var(--r-xl);padding:17px 36px 15px;
+  box-shadow:var(--golge-kart);text-align:center;
+}
+.ana .sure{font-size:60px;font-weight:250;letter-spacing:-.045em;line-height:1;
+  font-variant-numeric:tabular-nums;color:var(--metin)}
+.ana .sure-alt{margin-top:5px;font-size:12.5px;font-weight:500;color:var(--metin-2)}
+
+/* ---- beyaz zemin: modlar + başlat ---- */
+.ana .yer{
+  flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+  padding:18px 18px calc(env(safe-area-inset-bottom) + 24px);background:var(--zemin);
+}
+.ana .mod-sar{position:relative;width:100%}
+.ana .mod-sar::after{content:"";position:absolute;top:0;bottom:0;right:0;width:34px;pointer-events:none;
+  background:linear-gradient(90deg,hsl(0 0% 100% / 0),var(--zemin))}
+.ana .modlar{display:flex;gap:7px;justify-content:flex-start;width:100%;
+  overflow-x:auto;scrollbar-width:none;padding:2px 4px}
+.ana .modlar::-webkit-scrollbar{display:none}
+.ana .modlar .mode-card{
+  flex:0 0 auto;padding:10px 15px;border-radius:var(--r-hap);
+  font-size:13.5px;font-weight:600;line-height:1.2;
+  color:var(--metin-2);background:var(--zemin-2);border:1px solid var(--cizgi);cursor:pointer;
+  transition:color .18s var(--ease),background .18s var(--ease),border-color .18s var(--ease);
+}
+.ana .modlar .mode-card .mode-desc{display:none}   /* metin i18n için DOM'da kalır, görünmez */
+/* style.css'teki .mode-name 16px/650 kuralını ölçeğe geri çek (DESIGN.md: etiket rolü) */
+.ana .modlar .mode-card .mode-name{font-size:13.5px;font-weight:inherit;color:inherit;letter-spacing:0}
+.ana .modlar .mode-card.active{
+  color:var(--marka-koyu);background:var(--marka-cok-acik);border-color:hsl(186 74% 74%);font-weight:650;
+}
+.ana .basla{
+  width:100%;max-width:340px;padding:20px 24px;border:0;border-radius:var(--r-hap);
+  background:linear-gradient(180deg,#25e0f5,var(--marka));color:var(--buton-metin);
+  font-size:17px;font-weight:750;letter-spacing:-.01em;cursor:pointer;
+  box-shadow:var(--golge-buton);
+  transition:transform .18s var(--ease),box-shadow .18s var(--ease);
+}
+.ana .basla:active{transform:translateY(1px);box-shadow:0 6px 16px hsl(188 80% 28% / .3)}
+
+/* dar/kısa ekran: gökyüzü küçülür, sayaç ve buton asla kırpılmaz */
+@media (max-height:680px){
+  .ana .gok{flex:0 0 48%}
+  .ana .sure{font-size:50px}
+  .ana .sure-kart{padding:13px 28px 11px;margin-top:14px}
+  .ana .yer{gap:16px}
+  .ana .basla{padding:17px 24px}
+}
+@media (max-height:560px){
+  .ana .gok{flex:0 0 42%}
+  .ana .sure{font-size:42px}
+  .ana .etiket-bar{margin-top:10px;padding:9px 14px}
+}
+
+/* ============ MENÜ ÇEKMECESİ ============ */
+
+.ak-menu{
+  position:fixed;inset:0 auto 0 0;z-index:60;width:min(86vw,360px);
+  background:var(--zemin);color:var(--metin);
+  transform:translateX(-102%);transition:transform .26s var(--ease);
+  display:flex;flex-direction:column;
+  box-shadow:0 0 44px hsl(196 40% 24% / .28);
+}
+.ak-menu.open{transform:none}
+.ak-menu-ust{
+  flex:0 0 auto;display:flex;align-items:center;gap:12px;
+  padding:calc(env(safe-area-inset-top) + 18px) 16px 16px;
+  background:linear-gradient(180deg,var(--gok-2),var(--gok-3));
+  color:var(--gok-metin);
+}
+.ak-menu-ust .mk-ad{flex:1;min-width:0}
+.ak-menu-ust .mk-ad b{display:block;font-size:20px;font-weight:750;letter-spacing:-.02em}
+.ak-menu-ust .mk-ad small{display:block;margin-top:2px;font-size:12.5px;color:hsl(196 30% 30%)}
+.ak-menu-ust .ikon{
+  width:44px;height:44px;   /* DESIGN.md: dokunma hedefi 44px */display:grid;place-items:center;border-radius:13px;padding:0;cursor:pointer;
+  background:hsl(0 0% 100% / .6);border:1px solid hsl(0 0% 100% / .85);color:var(--gok-metin);
+}
+.ak-menu-ust .ikon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+
+.ak-menu-govde{flex:1;min-height:0;overflow-y:auto;padding:14px 12px 8px;-webkit-overflow-scrolling:touch}
+.ak-menu-alt{
+  flex:0 0 auto;padding:10px 12px calc(env(safe-area-inset-bottom) + 14px);
+  border-top:1px solid var(--cizgi);background:var(--zemin);
+}
+
+.ak-grup{
+  margin:16px 6px 8px;font-size:12.5px;font-weight:750;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--metin-2);
+}
+.ak-grup:first-child{margin-top:4px}
+
+.ak-satir{
+  width:100%;display:flex;align-items:center;gap:13px;min-height:52px;
+  padding:12px 14px;border:0;border-radius:var(--r-md);background:transparent;color:var(--metin);
+  font-size:15px;font-weight:600;text-align:left;cursor:pointer;text-decoration:none;
+  transition:background .18s var(--ease);
+}
+.ak-satir:active{background:var(--zemin-2)}
+.ak-satir svg{width:20px;height:20px;flex:0 0 auto;fill:none;stroke:var(--marka-orta);
+  stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.ak-satir .ak-ad{flex:1;min-width:0}
+.ak-satir .ak-deger{font-size:12.5px;font-weight:600;color:var(--metin-2);font-variant-numeric:tabular-nums}
+.ak-satir.premium{background:linear-gradient(180deg,#fff6e6,#ffeed2);color:var(--amber-koyu);font-weight:700}
+.ak-satir.premium svg{stroke:var(--amber-koyu)}
+.ak-satir.ayar{background:var(--zemin-2);font-weight:700}
+
+/* orman kartı */
+.ak-orman{
+  margin:2px 6px 6px;padding:14px;border-radius:var(--r-lg);
+  background:linear-gradient(180deg,var(--marka-cok-acik),var(--zemin-2));
+}
+.ak-orman .ok-ust{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+.ak-orman .ok-ust b{font-size:15px;font-weight:700}
+.ak-orman .ok-ust span{font-size:12.5px;font-weight:600;color:var(--metin-2)}
+.ak-orman canvas{width:100%;height:104px;display:block;border-radius:var(--r-sm)}
+
+/* ============ ALT SAYFALAR (sheet) ============ */
+
+.ak-sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:62;
+  max-height:86dvh;display:flex;flex-direction:column;
+  background:var(--zemin);color:var(--metin);
+  border-radius:var(--r-xl) var(--r-xl) 0 0;
+  box-shadow:0 -18px 48px hsl(196 40% 24% / .26);
+  transform:translateY(102%);visibility:hidden;
+  transition:transform .26s var(--ease),visibility 0s linear .26s;
+}
+.ak-sheet.open{transform:none;visibility:visible;transition:transform .26s var(--ease),visibility 0s}
+.ak-sheet-ust{
+  flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:16px 18px 10px;
+}
+.ak-sheet-ust h3{flex:1;margin:0;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.ak-sheet-ust .ikon{
+  width:44px;height:44px;display:grid;place-items:center;border-radius:12px;padding:0;cursor:pointer;
+  background:var(--zemin-2);border:1px solid var(--cizgi);color:var(--metin-2);
+}   /* DESIGN.md: dokunma hedefi 44px */
+.ak-sheet-ust .ikon svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.ak-sheet::before{
+  content:"";position:absolute;top:7px;left:50%;transform:translateX(-50%);
+  width:38px;height:4px;border-radius:2px;background:var(--cizgi);
+}
+.ak-sheet-govde{
+  flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:4px 18px calc(env(safe-area-inset-bottom) + 22px);
+  display:flex;flex-direction:column;gap:18px;
+}
+.ak-alt-baslik{margin:2px 0 -8px;font-size:12.5px;font-weight:750;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--metin-2)}
+
+/* karartma perdesi */
+.ak-perde{
+  position:fixed;inset:0;z-index:58;background:hsl(196 42% 12% / .42);
+  opacity:0;pointer-events:none;transition:opacity .26s var(--ease);
+}
+.ak-perde.open{opacity:1;pointer-events:auto}
+
+/* ============ AÇIK ZEMİNE TAŞINAN ESKİ BİLEŞENLER ============
+   Bu bileşenler koyu tema için yazılmıştı; menü/sheet içinde
+   açık zeminde okunur hâle getirilir. Odak ve istatistik
+   ekranlarındaki hâlleri DEĞİŞMEZ. */
+
+.ak-menu .visual-picker,
+.ak-sheet .visual-picker{display:flex;flex-direction:column;gap:9px}
+.ak-menu .picker-label,
+.ak-sheet .picker-label{font-size:12.5px;font-weight:750;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--metin-2)}
+.ak-menu .visual-chips,
+.ak-sheet .visual-chips{display:flex;flex-wrap:wrap;gap:7px}
+
+.ak-sheet .chip,
+.ak-sheet .tag-chip{
+  padding:10px 15px;border-radius:var(--r-hap);font-size:13.5px;font-weight:600;
+  min-height:44px;   /* DESIGN.md: dokunma hedefi 44px */
+  color:var(--metin-2);background:var(--zemin-2);border:1px solid var(--cizgi);cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;
+}
+.ak-sheet .chip.active,
+.ak-sheet .tag-chip.on{
+  color:var(--marka-koyu);background:var(--marka-cok-acik);border-color:hsl(186 74% 74%);font-weight:650;
+}
+.ak-sheet .tag-chip .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.ak-sheet .tag-chip.add{color:var(--marka-koyu);border-style:dashed;background:transparent}
+
+.ak-sheet .task-input,
+.ak-sheet .giris{
+  width:100%;padding:14px 16px;border-radius:var(--r-sm);
+  border:1px solid var(--cizgi);background:var(--zemin-2);color:var(--metin);
+  font-family:inherit;font-size:15px;outline:none;
+  transition:border-color .18s var(--ease),box-shadow .18s var(--ease);
+}
+.ak-sheet .task-input::placeholder{color:var(--metin-2)}
+.ak-sheet .task-input:focus,
+.ak-sheet .giris:focus{border-color:var(--marka);box-shadow:0 0 0 2px hsl(186 90% 60% / .45)}
+
+.ak-sheet .section-btn{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  min-height:60px;padding:14px 16px;border:0;border-radius:var(--r-md);
+  background:var(--zemin-2);color:var(--metin);
+  font-family:inherit;font-size:15px;font-weight:600;text-align:left;cursor:pointer;text-decoration:none;
+}
+.ak-sheet .section-btn svg{width:18px;height:18px;flex:0 0 auto;fill:none;stroke:var(--metin-2);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ak-sheet .section-btn .dc-sub{margin-top:3px;font-size:12.5px;font-weight:500;color:var(--metin-2)}
+.ak-sheet .coin-pill{
+  flex:0 0 auto;padding:6px 11px;border-radius:var(--r-hap);
+  background:var(--marka-cok-acik);color:var(--marka-koyu);
+  font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;
+}
+.ak-sheet .text-btn{
+  align-self:center;padding:12px 18px;border:0;background:transparent;
+  color:var(--tehlike-2);font-family:inherit;font-size:14px;font-weight:650;cursor:pointer;
+}
+.ak-sheet .backup-row,
+.ak-sheet .support-block{display:flex;flex-direction:column;gap:8px}
+
+.ak-sheet .custom-setup{display:flex;gap:12px}
+.ak-sheet .stepper{flex:1;padding:14px;border-radius:var(--r-md);background:var(--zemin-2)}
+.ak-sheet .stepper label{display:block;margin-bottom:9px;font-size:12.5px;font-weight:600;color:var(--metin-2)}
+.ak-sheet .stepper-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ak-sheet .step-btn{
+  width:38px;height:38px;flex:0 0 auto;border-radius:12px;border:1px solid var(--cizgi);
+  background:var(--zemin);color:var(--marka-koyu);font-size:19px;font-weight:700;line-height:1;cursor:pointer;
+}
+.ak-sheet .step-val{font-size:15px;font-weight:650;font-variant-numeric:tabular-nums}
+.ak-sheet .deep-chip{width:100%;justify-content:center}
+
+.ak-sheet .hidden{display:none}
+
+@media (prefers-reduced-motion:reduce){
+  .ana .agac img{animation:none}
+  .ak-menu,.ak-sheet,.ak-perde,.ana .basla,.ana .modlar .mode-card{transition-duration:0s}
+}
+
+/* ============================================================
+   BİLGİ EKRANLARINI AÇIK DÜNYAYA ÇEK  (2026-08-28, Aşama C)
+
+   style.css'teki bileşenlerin HEPSİ var(--card) / var(--text) gibi
+   değişkenlerden besleniyor. O yüzden onlarca kuralı tek tek ezmek
+   yerine, YALNIZ bu kapsayıcıların içinde değişkenleri yeniden
+   tanımlıyoruz. Tek yerden dönüyor, style.css'e dokunulmuyor.
+
+   ⛔ #view-focus ve #sound-panel BİLEREK DIŞARIDA: seans ekranı tam
+      ekran manzara videosunun üstünde durur, koyu kalmalı.
+   ============================================================ */
+
+#view-stats, #view-plot, #view-takvim,
+.ak-menu, .ak-sheet, #modal, #lang-panel{
+  --bg:      #ffffff;
+  --bg-2:    #f5f9fa;
+  --card:    #f5f9fa;
+  --card-2:  #eef4f6;
+  --line:    #deebed;
+  --text:    #192c33;
+  --muted:   #5b737b;
+  --accent:  #077283;
+  --accent-2:#0e9eb4;
+  --gold:    #9a6410;
+  --gold-2:  #eda63c;
+  --danger:  #c23a4b;
+  --radius:  16px;
+  --shadow:  0 14px 38px hsl(196 40% 28% / .15);
+}
+
+#view-stats, #view-takvim{background:var(--zemin);color:var(--metin)}
+#view-plot{background:var(--zemin)}
+
+/* başlık çubuğu */
+#view-stats .home-top, #view-takvim .home-top, #view-plot .home-top{
+  padding:calc(env(safe-area-inset-top) + 6px) 14px 10px;
+  border-bottom:1px solid var(--cizgi);
+}
+#view-stats .brand, #view-takvim .brand, #view-plot .brand{
+  font-size:19px;font-weight:700;letter-spacing:-.02em;color:var(--metin)}
+#view-stats .brand::before, #view-takvim .brand::before, #view-plot .brand::before{content:none}
+#view-stats .icon-btn, #view-takvim .icon-btn, #view-plot .icon-btn,
+#modal .icon-btn{color:var(--metin-2);background:transparent}
+#view-stats .icon-btn svg, #view-takvim .icon-btn svg,
+#view-plot .icon-btn svg, #modal .icon-btn svg{stroke:currentColor}
+
+/* style.css'te sabit yazılmış (değişkene bağlı olmayan) renkler — açık zeminde okunmuyorlardı */
+#view-stats .stat-card:nth-child(2) .stat-num{color:var(--amber-koyu)}
+#view-stats .stat-card:nth-child(3) .stat-num{color:#1461a8}
+#view-stats .coin-pill, .ak-sheet .coin-pill{
+  background:var(--marka-cok-acik);border-color:hsl(186 74% 78%);color:var(--marka-koyu)}
+#view-stats .badge.on{border-color:hsl(38 72% 62%);box-shadow:0 2px 8px hsl(38 60% 40% / .16)}
+#modal .shop-bal{color:var(--amber-koyu)}
+#modal .shop-buy{
+  min-height:44px;   /* DESIGN.md: dokunma hedefi 44px */
+  background:hsl(38 88% 92%);border-color:hsl(38 72% 60%);color:#8f5d0e}
+/* satın alınamaz durumda opaklık düşürmek fiyatı okunmaz yapıyordu (1,73:1) —
+   fiyat GÖRÜNMELİ, kullanıcı ne kadar biriktireceğini bilmeli */
+#modal .shop-buy.off{
+  opacity:1;background:var(--zemin-2);border-color:var(--cizgi);color:var(--metin-2)}
+/* dükkân sekmeleri: para rengi değil, uygulamanın seçim rengi */
+#modal .shop-tab.on{
+  background:var(--marka-cok-acik);border-color:hsl(186 74% 74%);color:var(--marka-koyu)}
+#modal .restore-ta{background:var(--zemin-2);color:var(--metin)}
+/* birincil modal butonu: koyu turkuaz üstüne koyu yazı okunmuyordu */
+#modal .m-btn.primary{background:var(--marka);border-color:var(--marka);color:var(--buton-metin)}
+#modal .m-btn.danger{background:var(--tehlike-2);border-color:var(--tehlike-2);color:#fff}
+#modal .modal-card{box-shadow:var(--golge-kart)}
+
+/* ---- istatistik bölüm sekmeleri ---- */
+.ist-sekme{
+  flex:0 0 auto;display:flex;gap:6px;padding:10px 14px 4px;
+  overflow-x:auto;scrollbar-width:none;background:var(--zemin);
+}
+.ist-sekme::-webkit-scrollbar{display:none}
+.isek{
+  flex:0 0 auto;padding:9px 14px;border-radius:var(--r-hap);
+  min-height:44px;display:inline-flex;align-items:center;   /* DESIGN.md: 44px */
+  font-size:13.5px;font-weight:600;cursor:pointer;
+  color:var(--metin-2);background:var(--zemin-2);border:1px solid var(--cizgi);
+  transition:color .18s var(--ease),background .18s var(--ease),border-color .18s var(--ease);
+}
+.isek.on{color:var(--marka-koyu);background:var(--marka-cok-acik);
+  border-color:hsl(186 74% 74%);font-weight:650}
+
+.ist-bolum{display:none;flex-direction:column;gap:18px}
+.ist-bolum.on{display:flex}
+#view-stats #pond-full{width:100%;height:190px;display:block;border-radius:var(--r-lg)}
+
+/* ============================================================
+   TAKVİM  (Aşama D)
+   ============================================================ */
+
+.tk-govde{
+  flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:14px 16px calc(env(safe-area-inset-bottom) + 24px);
+  display:flex;flex-direction:column;gap:14px;
+}
+.tk-ay{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tk-ay b{font-size:17px;font-weight:700;letter-spacing:-.01em;text-transform:capitalize}
+.tk-ok{
+  width:40px;height:40px;flex:0 0 auto;display:grid;place-items:center;cursor:pointer;
+  border-radius:13px;border:1px solid var(--cizgi);background:var(--zemin-2);color:var(--metin-2);
+}
+.tk-ok svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+
+.tk-gunadlari{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.tk-gunadlari span{
+  text-align:center;font-size:12.5px;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--metin-2);
+}
+.tk-izgara{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.tk-bos{display:block}
+.tk-gun{
+  aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  border-radius:var(--r-sm);border:1px solid transparent;background:var(--zemin-2);cursor:pointer;
+  color:var(--metin-2);font-family:inherit;padding:0;
+  transition:background .18s var(--ease),border-color .18s var(--ease);
+}
+.tk-gun b{font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1}
+.tk-gun i{font-size:11.5px;   /* `mikro` rolu — gün sayısıyla yarışmasın */font-style:normal;font-weight:600;font-variant-numeric:tabular-nums;opacity:.85}
+/* çalışılan günler: 4 kademe yoğunluk — dakika da yazıldığı için renk tek başına anlam taşımıyor */
+.tk-gun.y1{background:hsl(186 76% 93%);color:var(--marka-koyu)}
+.tk-gun.y2{background:hsl(186 78% 84%);color:var(--marka-koyu)}
+.tk-gun.y3{background:hsl(187 76% 68%);color:hsl(190 90% 16%)}
+.tk-gun.y4{background:hsl(188 78% 52%);color:hsl(192 92% 13%)}
+.tk-gun.bugun{border-color:var(--marka-orta)}
+.tk-gun.secili{border-color:var(--metin);border-width:2px}
+
+.tk-ay-toplam{
+  margin:0;text-align:center;font-size:13px;font-weight:600;color:var(--metin-2);
+}
+.tk-detay{min-height:60px}
+.tk-ipucu{margin:0;text-align:center;font-size:13px;color:var(--metin-2);padding:14px 0}
+.tk-detay-kart{
+  padding:16px;border-radius:var(--r-lg);background:var(--zemin-2);
+}
+.tk-detay-kart h4{margin:0;font-size:15px;font-weight:700;color:var(--metin);text-transform:capitalize}
+.tk-gun-toplam{margin:4px 0 12px;font-size:12.5px;font-weight:600;color:var(--metin-2)}
+.tk-liste{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px}
+.tk-sat{display:grid;grid-template-columns:10px 1fr auto;grid-template-rows:auto auto;
+  gap:3px 9px;align-items:center}
+.tk-nokta{width:10px;height:10px;border-radius:50%;grid-row:1}
+.tk-ad{font-size:14px;font-weight:600;color:var(--metin);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tk-dk{font-size:13px;font-weight:650;color:var(--metin-2);font-variant-numeric:tabular-nums}
+.tk-cubuk{grid-column:1 / -1;height:6px;border-radius:3px;background:var(--cizgi);overflow:hidden}
+.tk-cubuk i{display:block;height:100%;border-radius:3px}
+
+@media (min-width:520px){
+  .tk-govde{max-width:520px;width:100%;margin:0 auto}
+}
+
+/* --- açık zeminde okunurluk düzeltmeleri (ölçülerek bulundu) --- */
+/* Kilitli rozetler koyu tema için .34 opaklığa ayarlanmıştı; beyaz zeminde
+   ad yazısı 2,3:1'e düşüyordu. Kazanılmamış rozetin adı OKUNMALI —
+   motivasyonun kaynağı zaten "henüz almadığın" rozet. */
+#view-stats .badge{opacity:.62;filter:grayscale(.5)}
+#view-stats .badge.on{opacity:1;filter:none}
+/* jeton ödül düğmeleri: amber üstüne amber okunmuyordu */
+#view-stats .dc-btn{
+  background:hsl(38 88% 92%);border-color:hsl(38 72% 60%);color:#8f5d0e}
+#view-stats .dc-btn:disabled{opacity:1;background:var(--zemin-2);border-color:var(--cizgi);color:var(--metin-2)}
+
+/* 🪤 TUZAK (2026-08-28, ölçülerek bulundu):
+   Değişkeni yeniden tanımlamak MİRAS ALINAN rengi düzeltmez.
+   body{color:var(--text)} zaten KOYU tema değerine hesaplanıp miras kalıyor;
+   kendi `color` bildirimi olmayan öğeler (modal başlığı, .shop-name, .tl-head)
+   beyaz zeminde beyaz yazı oluyordu. Açık kapsayıcıya color'ı AÇIKÇA yazmak şart. */
+#modal .modal-card{color:var(--metin)}
+#lang-panel{color:var(--metin)}
+#view-plot{color:var(--metin)}
+#view-plot .plot-hint{color:var(--metin-2)}
+
+/* ============================================================
+   KATMAN SIRASI  (2026-08-28, ölçülerek bulundu)
+
+   🪤 Yeni kabuk (menü 60 / alt sayfa 62) eski yığının ÜSTÜNE bindi;
+      onay penceresi (.modal-overlay z:40) ve dil paneli (.drawer z:20)
+      altta kalıyordu. "İstatistikleri sıfırla" onayı GÖRÜNMÜYORDU.
+      Sıra artık tek yerden okunur:
+
+        58  perde (ak-perde)
+        60  menü çekmecesi
+        62  alt sayfa (sheet)
+        68  eski perde (drawer-backdrop)
+        70  dil / ses paneli (.drawer)
+        80  onay penceresi (modal)
+        90  reklam bekleme perdesi
+       120  toast  (style.css'te zaten)
+   ============================================================ */
+.drawer-backdrop{z-index:68}
+.drawer{z-index:70}
+.modal-overlay{z-index:80}
+.ad-wait{z-index:90}
+
+/* ============================================================
+   KİTAPLIĞIM  (Aşama E)
+   ============================================================ */
+
+#view-kitaplik{background:var(--zemin);color:var(--metin)}
+#view-kitaplik .home-top{
+  padding:calc(env(safe-area-inset-top) + 6px) 14px 10px;border-bottom:1px solid var(--cizgi)}
+#view-kitaplik .brand{font-size:19px;font-weight:700;letter-spacing:-.02em;color:var(--metin)}
+#view-kitaplik .brand::before{content:none}
+#view-kitaplik .icon-btn{color:var(--metin-2);background:transparent}
+#view-kitaplik .icon-btn svg{stroke:currentColor}
+
+.kt-govde{
+  flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:16px 16px calc(env(safe-area-inset-bottom) + 24px);
+  display:flex;flex-direction:column;gap:16px;
+}
+.kt-govde .stats-h{margin:6px 0 -6px;font-size:15px;font-weight:700;color:var(--metin)}
+.kt-ozet .stat-card{background:var(--zemin-2);border:1px solid var(--cizgi);border-radius:var(--r-md);padding:16px 8px}
+.kt-ozet .stat-num{font-size:26px;font-weight:300;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;color:var(--marka-koyu)}
+.kt-ozet .stat-card:nth-child(2) .stat-num,
+.kt-ozet .stat-card:nth-child(3) .stat-num{color:var(--marka-koyu)}
+.kt-ozet .stat-lbl{font-size:12.5px;color:var(--metin-2)}
+
+.kt-liste{display:flex;flex-direction:column;gap:8px}
+.kt-sat{
+  display:flex;align-items:center;gap:13px;width:100%;min-height:72px;
+  padding:14px;border:0;border-radius:var(--r-md);background:var(--zemin-2);
+  font-family:inherit;text-align:left;cursor:pointer;color:var(--metin);
+}
+.kt-sat .kt-kapak{
+  width:42px;height:42px;flex:0 0 auto;display:grid;place-items:center;
+  border-radius:var(--r-sm);background:var(--marka-cok-acik);font-size:20px;line-height:1;
+}
+.kt-sat.bitti .kt-kapak{background:hsl(152 46% 90%);color:var(--basari);font-size:19px;font-weight:800}
+.kt-bilgi{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.kt-bilgi b{font-size:15px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kt-bilgi i{font-size:12.5px;font-style:normal;color:var(--metin-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kt-alt{font-size:12.5px;font-weight:600;color:var(--metin-2);font-variant-numeric:tabular-nums}
+.kt-cubuk{display:block;height:6px;margin-top:5px;border-radius:3px;background:var(--cizgi);overflow:hidden}
+.kt-cubuk i{display:block;height:100%;border-radius:3px;
+  background:linear-gradient(90deg,var(--marka-orta),var(--marka))}
+.kt-sat.bitti .kt-cubuk i{background:var(--basari)}
+.kt-yuzde{flex:0 0 auto;font-size:12.5px;font-weight:700;color:var(--metin-2);
+  font-variant-numeric:tabular-nums}
+
+.kt-bos{
+  padding:30px 20px;text-align:center;border-radius:var(--r-lg);
+  background:var(--zemin-2);display:flex;flex-direction:column;align-items:center;gap:10px;
+}
+.kt-bos-ic{font-size:34px;line-height:1;opacity:.7}
+.kt-bos p{margin:0;font-size:14px;line-height:1.55;color:var(--metin-2);max-width:30ch}
+
+.kt-ekle-btn{
+  margin-top:4px;width:100%;padding:18px 24px;border:0;border-radius:var(--r-hap);
+  background:linear-gradient(180deg,#25e0f5,var(--marka));color:var(--buton-metin);
+  font-family:inherit;font-size:16px;font-weight:750;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  box-shadow:var(--golge-buton);
+}
+.kt-ekle-btn svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round}
+.kt-ekle-btn:active{transform:translateY(1px)}
+
+/* alt sayfa alanları */
+.kt-alan{display:flex;flex-direction:column;gap:7px}
+.kt-alan > span{font-size:12.5px;font-weight:650;color:var(--metin-2)}
+.kt-detay-alt{margin:0;font-size:13px;color:var(--metin-2)}
+.kt-hata{margin:0;min-height:1px;font-size:13px;font-weight:600;color:var(--tehlike-2)}
+.kt-hata:empty{display:none}
+.kt-birincil{
+  width:100%;padding:18px 24px;border:0;border-radius:var(--r-hap);
+  background:linear-gradient(180deg,#25e0f5,var(--marka));color:var(--buton-metin);
+  font-family:inherit;font-size:16px;font-weight:750;cursor:pointer;box-shadow:var(--golge-buton);
+}
+.kt-birincil:active{transform:translateY(1px)}
+.ak-sheet .kt-alan .giris{width:100%}
+
+@media (min-width:520px){
+  .kt-govde{max-width:520px;width:100%;margin:0 auto}
+}
+
+/* takvimde kitap okunan gün: sağ üstte küçük nokta.
+   Odak dakikası olmayan okuma günleri de bulunabilsin diye — renk tek
+   başına bilgi taşımasın diye gün etiketinde (aria-label) sayfa da yazıyor. */
+.tk-gun.okuma{position:relative}
+.tk-gun.okuma::after{
+  content:"";position:absolute;top:5px;inset-inline-end:5px;
+  width:5px;height:5px;border-radius:50%;background:#e08a1e;
+}
+
+/* ---- Ayarlardaki açık/kapalı anahtarı ----
+   Eskiden "✓ / —" yazıyordu; ne olduğu anlaşılmıyordu.
+   app.js hâlâ aynı metni yazıyor, anaekran.js satıra durum sınıfı veriyor,
+   görünüşü burası çiziyor. */
+.ak-sheet .anahtar .coin-pill{
+  width:48px;height:29px;flex:0 0 auto;padding:0;position:relative;border-radius:999px;
+  background:var(--cizgi);border:1px solid hsl(196 22% 82%);
+  font-size:0;color:transparent;
+  transition:background .18s var(--ease),border-color .18s var(--ease);
+}
+.ak-sheet .anahtar .coin-pill::after{
+  content:"";position:absolute;top:3px;inset-inline-start:3px;
+  width:21px;height:21px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px hsl(196 40% 20% / .3);
+  transition:transform .18s var(--ease);
+}
+.ak-sheet .anahtar-acik .coin-pill{background:var(--marka);border-color:var(--marka-orta)}
+.ak-sheet .anahtar-acik .coin-pill::after{transform:translateX(19px)}
+[dir="rtl"] .ak-sheet .anahtar-acik .coin-pill::after{transform:translateX(-19px)}
+
+/* ============================================================
+   ÜSTTEKİ İKİ AÇILIR ÇUBUK + İNCE ALT SAYFA  (2026-08-29)
+   ============================================================ */
+
+.ana .ust-cubuklar{
+  position:relative;z-index:3;margin:16px 18px 0;
+  display:flex;gap:8px;align-items:center;
+  overflow-x:auto;scrollbar-width:none;padding-bottom:2px;
+}
+.ana .ust-cubuklar::-webkit-scrollbar{display:none}
+.ana .ust-cubuklar .etiket-bar{margin:0;flex:0 0 auto;max-width:62vw}
+.ana .etiket-bar .ab-ic{
+  width:16px;height:16px;flex:0 0 auto;opacity:.75;
+  fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* ince alt sayfa: ekranı kaplamaz, parmakla gezilir */
+.ak-sheet.ince{max-height:56dvh}
+.ak-sheet.ince .ak-sheet-govde{gap:14px}
+@media (max-height:680px){ .ak-sheet.ince{max-height:64dvh} }
+
+/* arka plan seçimi ızgara olsun — 9 manzara tek bakışta */
+.bg-izgara{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ak-sheet .bg-izgara .chip{
+  justify-content:center;text-align:center;padding:14px 8px;line-height:1.25;
+  min-height:52px;
+}
+
+/* --- etiket sayfasındaki kitap bölümü --- */
+.etiket-kitaplar{display:none;flex-direction:column;gap:9px}
+.etiket-kitaplar.acik{display:flex}
+.etiket-kitaplar .picker-label{
+  font-size:12.5px;font-weight:750;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--metin-2)}
+.ek-bos{margin:0;font-size:13px;line-height:1.5;color:var(--metin-2)}
+.ek-kitaplar{display:flex;flex-direction:column;gap:7px}
+.ek-kitap{
+  width:100%;display:grid;grid-template-columns:1fr auto;gap:4px 10px;
+  padding:12px 14px;border:1px solid var(--cizgi);border-radius:var(--r-md);
+  background:var(--zemin-2);color:var(--metin);font-family:inherit;text-align:left;cursor:pointer;
+}
+.ek-kitap:active{background:var(--marka-cok-acik);border-color:hsl(186 74% 74%)}
+.ek-ad{font-size:14.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ek-sayfa{font-size:12.5px;font-weight:650;color:var(--metin-2);font-variant-numeric:tabular-nums}
+.ek-cubuk{grid-column:1 / -1;height:5px;border-radius:3px;background:var(--cizgi);overflow:hidden}
+.ek-cubuk i{display:block;height:100%;border-radius:3px;
+  background:linear-gradient(90deg,var(--marka-orta),var(--marka))}
+.ek-kitap-ekle{
+  align-self:flex-start;padding:11px 16px;border-radius:var(--r-hap);
+  border:1px dashed hsl(186 60% 62%);background:transparent;color:var(--marka-koyu);
+  font-family:inherit;font-size:13.5px;font-weight:650;cursor:pointer;
+}
+
+/* Manzara kartlarındaki yazı poster üstünde okunmuyordu (parlak sudaki
+   beyaz yazı ~1,5:1). Metin gerçek bir katmana (.bg-ad) alınıp koyu
+   perdenin üstüne konuyor; poster görünür kalırken yazı her manzarada okunur. */
+.ak-sheet .bg-izgara .chip.bg-card{
+  position:relative;overflow:hidden;padding:0;min-height:76px;
+  display:flex;align-items:flex-end;justify-content:center;
+  background-size:cover;background-position:center;
+  border-color:hsl(196 24% 78%);
+}
+.ak-sheet .bg-izgara .chip.bg-card::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,hsl(196 50% 8% / 0) 34%,hsl(196 58% 7% / .82) 100%);
+}
+.ak-sheet .bg-izgara .chip .bg-ad{
+  position:relative;z-index:1;width:100%;
+  padding:0 6px 9px;font-size:12.5px;font-weight:700;line-height:1.2;
+}
+.ak-sheet .bg-izgara .chip.bg-card .bg-ad{
+  color:#fff;text-shadow:0 1px 3px hsl(196 60% 6% / .95);
+}
+.ak-sheet .bg-izgara .chip.bg-card.active{
+  border-color:var(--marka);box-shadow:0 0 0 2px hsl(186 90% 60% / .55)}
+/* "Yok" kartının posteri yok — normal çip gibi kalır ama boyu eşitlenir */
+.ak-sheet .bg-izgara .chip:not(.bg-card){
+  min-height:76px;align-items:flex-end;justify-content:center;padding:0}
+
+.ak-sheet .sure-aciklama{margin:0;font-size:13.5px;line-height:1.55;color:var(--metin-2)}
+
+/* menüdeki orman kartı tıklanabilir — kendi ağaç alanını açar */
+.ak-orman{cursor:pointer;transition:transform .18s var(--ease)}
+.ak-orman:active{transform:scale(.985)}
+.ak-orman .ok-ust::after{
+  content:"›";margin-inline-start:6px;font-size:17px;font-weight:700;color:var(--marka-koyu)}
+
+/* ============================================================
+   DÜKKÂN — ağaç türü satırı + BÜYÜK ÖNİZLEME  (2026-08-29)
+   ============================================================ */
+
+#modal .shop-ic .shop-agac{
+  width:30px;height:30px;object-fit:contain;display:block;margin:0 auto}
+#modal .shop-list li[data-onizle]{cursor:pointer}
+#modal .shop-list li[data-onizle]:active{background:var(--zemin-2)}
+#modal .shop-list li[data-onizle] .shop-name::after{
+  content:"›";margin-inline-start:7px;color:var(--metin-2);font-weight:700}
+
+/* önizleme katmanı — dükkânın ÜSTÜNDE, dükkânı kapatmaz */
+.shop-onizle{
+  position:fixed;inset:0;z-index:96;display:none;
+  align-items:center;justify-content:center;padding:24px;
+  background:hsl(196 45% 10% / .62);
+}
+.shop-onizle.open{display:flex}
+.so-kart{
+  position:relative;width:min(86vw,340px);padding:20px 20px 16px;
+  border-radius:var(--r-xl);background:var(--zemin);
+  box-shadow:0 24px 60px hsl(196 45% 12% / .4);text-align:center;
+}
+.so-gorsel{
+  height:min(46vh,300px);display:grid;place-items:center;
+  background:linear-gradient(180deg,var(--marka-cok-acik),var(--zemin-2));
+  border-radius:var(--r-lg);padding:14px;
+}
+.so-gorsel img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.so-ad{margin:13px 0 0;font-size:17px;font-weight:700;color:var(--metin)}
+.so-x{
+  position:absolute;top:10px;inset-inline-end:10px;width:36px;height:36px;
+  display:grid;place-items:center;border-radius:12px;cursor:pointer;
+  background:var(--zemin-2);border:1px solid var(--cizgi);color:var(--metin-2);
+}
+.so-x svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.so-renk{display:block;width:min(58vw,220px);aspect-ratio:1;border-radius:var(--r-lg);
+  box-shadow:inset 0 2px 10px hsl(196 40% 20% / .18)}
+.so-sim{font-size:min(34vw,130px);line-height:1}
+
+/* ============================================================
+   İSTATİSTİK GRAFİĞİ — Ay/Yıl'da taşma düzeltmesi (2026-08-29)
+   30 sütunda 8px boşluk + her sütuna etiket = grafik dışına taşıyordu.
+   ============================================================ */
+#view-stats .week-chart{
+  gap:5px;overflow:hidden;padding:16px 12px 12px;
+  background:var(--zemin-2);border-color:var(--cizgi);
+}
+#view-stats .week-chart .week-bar{min-width:0;flex:1 1 0}
+#view-stats .week-chart .week-bar .day{
+  font-size:12.5px;color:var(--metin-2);white-space:nowrap;line-height:1.1}
+#view-stats .week-chart .bar{
+  background:linear-gradient(180deg,var(--marka-orta),var(--marka))}
+#view-stats .week-chart.yogun{gap:2px}
+#view-stats .week-chart.yogun .week-bar .day{font-size:11.5px}   /* `mikro` */
+#view-stats .week-chart.saatlik{gap:2px}
+#view-stats .week-chart.saatlik .week-bar .day{font-size:11.5px}   /* `mikro` */
+/* hiç kayıt yoksa çizgi dizisi yerine açık bir cümle */
+#view-stats .week-chart .grafik-bos{
+  margin:auto;font-size:13.5px;color:var(--metin-2);text-align:center}
+
+/* Uyku etiketinde yalnız "Kendin Ayarla" kalır */
+.ana .modlar .mode-card.mod-gizli{display:none}
+
+/* ---- SESSİZ düğmesi: kaydırılan çubuk satırının DIŞINDA, hep görünür ----
+   Uzun etiket adı ("Ders · Matematik") satırı taşırınca düğme ekrandan
+   kayboluyordu; sarmalayıcıya alınıp sabitlendi. Açıkken marka rengiyle yanar. */
+.ana .ust-cubuk-sar{
+  position:relative;z-index:3;margin:16px 18px 0;
+  display:flex;align-items:center;gap:8px;min-width:0;
+}
+.ana .ust-cubuk-sar .ust-cubuklar{margin:0;flex:1 1 auto;min-width:0}
+.ana .sessiz-dugme{
+  flex:0 0 auto;width:46px;height:46px;display:grid;place-items:center;cursor:pointer;
+  border-radius:var(--r-hap);color:var(--gok-metin);
+  background:hsl(0 0% 100% / .72);border:1px solid hsl(0 0% 100% / .9);
+  box-shadow:0 4px 14px hsl(196 40% 38% / .14);
+  transition:background .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease);
+}
+.ana .sessiz-dugme svg{width:21px;height:21px;fill:none;stroke:currentColor;
+  stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.ana .sessiz-dugme.acik{
+  background:var(--marka);border-color:var(--marka-orta);color:var(--buton-metin);
+  box-shadow:0 6px 18px hsl(188 80% 34% / .4);
+}
+
+/* ============================================================
+   GÜNCELLEME KAPISI (2026-08-29)
+   Sunucudaki surum.json'a göre açılır; zorunlu ise "Sonra" yoktur.
+   ============================================================ */
+.guncel-kapi{
+  position:fixed;inset:0;z-index:130;display:flex;align-items:center;justify-content:center;
+  padding:24px;background:hsl(196 45% 10% / .68);
+}
+.gk-kart{
+  width:min(88vw,360px);padding:28px 22px 20px;border-radius:var(--r-xl);
+  background:var(--zemin);color:var(--metin);text-align:center;
+  box-shadow:0 26px 64px hsl(196 45% 12% / .45);
+}
+.gk-ic{
+  width:62px;height:62px;margin:0 auto 14px;display:grid;place-items:center;
+  border-radius:50%;background:var(--marka-cok-acik);color:var(--marka-koyu);
+}
+.gk-ic svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:2.2;
+  stroke-linecap:round;stroke-linejoin:round}
+.gk-kart h3{margin:0 0 8px;font-size:19px;font-weight:750;letter-spacing:-.02em}
+.gk-not{margin:0 0 6px;font-size:14px;line-height:1.55;color:var(--metin-2)}
+.gk-surum{margin:0 0 18px;font-size:12.5px;font-weight:650;color:var(--metin-2);
+  font-variant-numeric:tabular-nums}
+.gk-birincil{
+  width:100%;padding:17px;border:0;border-radius:var(--r-hap);cursor:pointer;
+  background:linear-gradient(180deg,#25e0f5,var(--marka));color:var(--buton-metin);
+  font-family:inherit;font-size:16px;font-weight:750;box-shadow:var(--golge-buton);
+}
+.gk-sonra{
+  width:100%;margin-top:8px;padding:14px;border:0;background:transparent;cursor:pointer;
+  color:var(--metin-2);font-family:inherit;font-size:14.5px;font-weight:650;
+}
+
+/* ============================================================
+   HESAP EKRANI (2026-08-29)
+   ============================================================ */
+.h-not{margin:0;font-size:13.5px;line-height:1.6;color:var(--metin-2)}
+.h-kimlik{display:flex;align-items:center;gap:13px;padding:14px;border-radius:var(--r-md);
+  background:var(--zemin-2)}
+.h-avatar{
+  width:46px;height:46px;flex:0 0 auto;display:grid;place-items:center;border-radius:50%;
+  background:var(--marka);color:var(--buton-metin);font-size:20px;font-weight:750}
+.h-bilgi{display:flex;flex-direction:column;gap:2px;min-width:0}
+.h-bilgi b{font-size:15.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.h-bilgi i{font-size:12.5px;font-style:normal;color:var(--metin-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.h-ikincil{
+  width:100%;padding:16px;border-radius:var(--r-hap);cursor:pointer;
+  background:var(--zemin-2);border:1px solid var(--cizgi);color:var(--metin);
+  font-family:inherit;font-size:15.5px;font-weight:650}
+/* .ak-sheet .text-btn kırmızı (silme rengi) — "şifremi unuttum" yıkıcı bir eylem değil */
+.ak-sheet .h-unut{align-self:center;color:var(--metin-2);font-weight:600}
+/* Hesap silme YIKICI bir eylem — tehlike rengiyle ayrılır, en altta durur. */
+.ak-sheet .h-sil{align-self:center;color:var(--tehlike-2);font-weight:600;margin-top:2px}
+.ak-sheet .h-sil-not{text-align:center;margin-top:-4px}
+
+.h-mesaj{margin:0;min-height:1px;font-size:13.5px;font-weight:600;line-height:1.5}
+.h-mesaj:empty{display:none}
+.h-mesaj.kotu{color:var(--tehlike-2)}
+.h-mesaj.iyi{color:var(--basari)}
+
+.h-ayrac{display:flex;align-items:center;gap:12px;color:var(--metin-2);font-size:12.5px}
+.h-ayrac::before,.h-ayrac::after{content:"";flex:1;height:1px;background:var(--cizgi)}
+
+.h-saglayici{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:11px;
+  padding:15px;border-radius:var(--r-hap);cursor:pointer;
+  background:var(--zemin);border:1px solid hsl(196 20% 80%);color:var(--metin);
+  font-family:inherit;font-size:15.5px;font-weight:650}
+.h-saglayici svg{width:20px;height:20px;flex:0 0 auto}
+.h-saglayici.h-apple{background:#000;border-color:#000;color:#fff}

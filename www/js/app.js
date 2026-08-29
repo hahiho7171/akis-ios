@@ -5,13 +5,84 @@
 
   // ---- ayarlar (kalıcı) ----
   const settings = Object.assign({
-    mode:'pomodoro', workMin:30, breakMin:5, visual:'hourglass',
-    background:'none', mix:{}, music:'classic', musicVol:40,   // 2026-08-26 kullanıcı kararı: açılış sesi ambiyans değil KLASİK (Satie), orta ses. Ambiyans (yağmur vb.) varsayılan KAPALI.
-    deepFocus:false          // "Derin Odak": uygulamadan 30sn+ ayrılırsan ağaç soluk dikilir (opsiyonel)
+    /* 2026-08-29 kullanıcı kararı:
+       · kum saati kaldırıldı → varsayılan görsel HALKA
+       · "Kendin ayarla" 10 dakikadan başlar
+       · açılışta MÜZİK KAPALI, yalnız saat tik-takı açık (mix.tick) */
+    mode:'pomodoro', workMin:10, breakMin:5, visual:'ring',
+    background:'none', mix:{tick:35}, music:'off', musicVol:40,
+    deepFocus:true,          // ⑧ 2026-08-28: rakipte ceza VARSAYILAN AÇIK; motivasyonun kaynağı o.
+                             //    Eski kullanıcının kapattığı tercih localStorage'dan gelir, bozulmaz.
+    overtime:false,          // ⑪ süre dolunca yukarı saymaya devam et
+    dnd:false                // ⑥ seans boyunca Rahatsız Etme
   }, load());
 
+  /* 🚨 GÖÇ (2026-08-29): kaldırılan seçenekler kayıtlı kalmış olabilir.
+     Yoksa AkisVisual bilinmeyen tip alır ve ekrana hiçbir şey çizilmez. */
+  if(settings.visual === 'hourglass') settings.visual = 'ring';
+  if(settings.mode === 'fiftytwo')    settings.mode   = 'pomodoro';
+  /* "Kendin ayarla" 30 dk'dan 10 dk'ya çekildi (kullanıcı isteği). Eski kurulumlarda
+     30 çoğunlukla ESKİ VARSAYILAN, bilinçli seçim değil — bir kez 10'a alınır.
+     Bayrak yazıldığı için kullanıcı sonradan 30 yaparsa bir daha dokunulmaz. */
+  try{
+    if(!localStorage.getItem('akora.sure10') ){
+      if(settings.workMin === 30) settings.workMin = 10;
+      /* Açılış sesi: eskiden Klasik (Satie) çalıyordu. Kullanıcı 29 Ağu'da
+         "sesler kapalı, yalnız saat tik-takı" dedi. Eski VARSAYILAN duruyorsa geçir;
+         kullanıcı bilerek seçtiyse (başka müzik ya da ambiyans açık) dokunma. */
+      const sesBos = !settings.mix || !Object.keys(settings.mix).some(k => settings.mix[k] > 0);
+      if(settings.music === 'classic' && sesBos){ settings.music = 'off'; settings.mix = {tick:35}; }
+      localStorage.setItem('akora.sure10','1');
+      saveSettings();
+    }
+  }catch(e){}
+
   // Seans-sonu + kalıcı bildirimleri zamanlayıcı durumuna eşitle (native'de)
-  function syncNotifs(){ try{ if(window.AkisNotify && AkisNotify.syncSession) AkisNotify.syncSession(AkisTimer.snapshot()); }catch(e){} }
+  // + aynı anda oturumu diske yaz: bildirim ile uygulama ASLA ayrı düşmesin.
+  function syncNotifs(opts){
+    try{ if(window.AkisNotify && AkisNotify.syncSession) AkisNotify.syncSession(AkisTimer.snapshot(), opts); }catch(e){}
+    oturumKaydet();
+  }
+
+  /* ===== OTURUM KALICILIĞI (2026-08-28, kullanıcı bildirimi) =====
+     Sorun: telefon uygulamayı arka planda öldürünce sayaç sıfırlanıyor, ama bildirim
+     çubuğundaki satır eski bitiş saatiyle kalıyordu → "süre yanlış devam ediyor".
+     Çözüm: her durum değişiminde oturumu diske yaz; açılışta duvar saatine göre
+     kaldığı yerden devam ettir. Böylece bildirime dokununca doğru ekran açılır. */
+  const OKEY='akis.oturum.v1';
+
+  /* 🪤 2026-08-29 (2. bildirim): "yeni indirdiğimde açılır açılmaz yine
+     pomodoro başlıyor; sonra kapatıp açınca çıkmıyor."
+     Kurulum/güncelleme sonrası ESKİ sürümün bıraktığı oturum kaydı hâlâ
+     duruyor ve ilk açılışta geri yükleniyordu. Sürüm damgası değiştiyse
+     kayıt koşulsuz atılır → güncelleme sonrası HER ZAMAN temiz açılış. */
+  (function surumTemizligi(){
+    try{
+      const sc = document.querySelector('script[src*="app.js"]');
+      const m  = sc && sc.getAttribute('src').match(/[?&]v=([0-9.]+)/);
+      const su = m ? m[1] : '0';
+      const SK = 'akora.surum';
+      if(localStorage.getItem(SK) !== su){
+        localStorage.removeItem(OKEY);
+        localStorage.setItem(SK, su);
+      }
+    }catch(e){}
+  })();
+  const OTURUM_TAZE_MS = 6*60*60*1000;   // 6 saatten eski kayıt geri yüklenmez
+  /* 🚨 Geri yükleme DENENMEDEN kayda dokunma. Yoksa açılışta tetiklenen bir
+     visibilitychange/appStateChange, odak ekranı henüz açılmadığı için kaydı SİLİYOR
+     ve kaldığın yerden devam özelliği sessizce ölüyordu (28 Ağu cihaz testinde yakalandı). */
+  let geriYuklemeDenendi=false;
+  function oturumKaydet(){
+    if(!geriYuklemeDenendi) return;
+    try{
+      if(!$('#view-focus').classList.contains('active')){ localStorage.removeItem(OKEY); return; }
+      const d=AkisTimer.durum();
+      d.ts=Date.now(); d.task=task; d.committedWork=committedWork; d.paleFlag=paleFlag;
+      localStorage.setItem(OKEY, JSON.stringify(d));
+    }catch(e){}
+  }
+  function oturumSil(){ try{ localStorage.removeItem(OKEY); }catch(e){} }
 
   // ---- Derin Odak takibi: seans sırasında uygulamadan uzun ayrılma → soluk ağaç ----
   let awayAt=0, paleFlag=false;
@@ -103,6 +174,21 @@
     $('#btn-stats').addEventListener('click', openStats);
     refreshPondMini();
   }
+  /* anaekran.js buradan süre kurar (ör. Uyku etiketi → 30 dk geri sayım) */
+  try{
+    window.AkoraAyar = {
+      sureAyarla:function(calisma, mola){
+        if(calisma) settings.workMin = Math.max(1, Math.min(240, calisma|0));
+        if(mola)    settings.breakMin = Math.max(1, Math.min(60,  mola|0));
+        saveSettings();
+        const w=$('#work-min'), b=$('#break-min');
+        if(w) w.textContent=settings.workMin;
+        if(b) b.textContent=settings.breakMin;
+      },
+      sure:function(){ return {calisma:settings.workMin, mola:settings.breakMin}; }
+    };
+  }catch(e){}
+
   function selectMode(mode){
     settings.mode=mode; saveSettings();
     document.querySelectorAll('#mode-grid .mode-card').forEach(c=>c.classList.toggle('active', c.dataset.mode===mode));
@@ -136,6 +222,11 @@
     setPlayIcon(true);
     requestWakeLock();
     showChrome();
+    /* Bildirim izni BURADA istenir — açılışta değil. Doğru bağlam: seans başlıyor,
+       "süre dolunca haber vereceğiz + çubukta kalan süre duracak". İzin yoksa
+       bildirim çubuğundaki kalıcı satır hiç görünemez (kullanıcı şikâyetinin bir ayağı). */
+    try{ if(window.AkisNotify && AkisNotify.ask) AkisNotify.ask().then(()=>syncNotifs()); }catch(e){}
+    sessizAyarla(true);      // ⑥ odak boyunca Rahatsız Etme
     syncNotifs();
     // ilk seansta bir kez: "görseli değiştirmek için kaydır" ipucu
     try{ if(!localStorage.getItem('akis.swipeHint')){ toast(t('swipe_hint')); localStorage.setItem('akis.swipeHint','1'); } }catch(e){}
@@ -187,7 +278,10 @@
       if(phase==='work') committedWork=false;
       // NOT: molaya-giriş reklamı artık btn-tobreak/pickBreak içinde AWAIT ile gösteriliyor (çifte reklam olmasın)
       pushState();
-      syncNotifs();   // faz değişti → seans-sonu bildirimi + kalıcı bildirim tazele
+      /* 🪤 phaseStart, goNext() içinde start()'TEN ÖNCE tetikleniyor → o an snapshot
+         running:false geliyor ve kalıcı bildirim yanlış duruma yazılıyordu. Bir tur
+         geciktirip sayaç gerçekten başladıktan SONRA eşitliyoruz. */
+      setTimeout(()=>syncNotifs(), 0);
     });
   }
 
@@ -234,6 +328,7 @@
     if(phase==='work'){
       showFlow();
       setPlayIcon(false);      // sayaç durdu → duraklat ikonu asılı kalmasın
+      syncNotifs();            // satır "Duraklatıldı"ya dönsün, bayat bitiş saati kalmasın
     }else{
       // MOLADAN DERSE DÖNERKEN reklam (kullanıcı kararı 2026-08-08). Sayaç reklamın arkasında
       // akmasın diye reklam beklenir, kapandıktan sonra yeni faz başlatılır.
@@ -249,7 +344,7 @@
     const mins=s.elapsed/60;
     if(mins>=1){
       committedWork=true;
-      const item=AkisStats.recordFocus(mins, task, paleFlag);
+      const item=AkisStats.recordFocus(mins, task, paleFlag, AkisStats.activeTag());
       paleFlag=false;
       if(item) showReward(item);
       refreshPondMini();
@@ -271,6 +366,8 @@
   async function doExit(){
     if(AkisTimer.phase==='work' && !committedWork) commitWork();
     AkisTimer.pause();
+    oturumSil();                                                                                   // seans bitti → geri yükleme kaydı da bitsin
+    sessizAyarla(false);                                                                           // ⑥ Rahatsız Etme'yi kapat
     try{ if(window.AkisNotify && AkisNotify.clearSession) AkisNotify.clearSession(); }catch(e){}   // kalıcı + seans-sonu bildirimlerini kaldır
     // ERKEN ÇIKIŞ REKLAMI (kullanıcı kararı 2026-08-08): seans beklemeden geri tuşuyla çıkılırsa
     // ana ekrana dönmeden reklam göster (perdeli; süre kaydı YUKARIDA çoktan yapıldı, veri riski yok)
@@ -314,7 +411,7 @@
   function showChrome(){ $('#view-focus').classList.remove('chrome-hidden'); armChromeHide(); }
   function toggleChrome(){ if($('#view-focus').classList.contains('chrome-hidden')) showChrome(); else { $('#view-focus').classList.add('chrome-hidden'); clearTimeout(chromeTimer); } }
 
-  const VIS_CYCLE=['hourglass','ring','clock','digits'];
+  const VIS_CYCLE=['ring','clock','digits'];
   const BG_CYCLE=['akvaryum','koi','sualti','okyanus','selale','orman','yagmur','somine'];
   function cycleVisual(dir){
     let i=VIS_CYCLE.indexOf(settings.visual); if(i<0)i=0; i=(i+dir+VIS_CYCLE.length)%VIS_CYCLE.length;
@@ -351,18 +448,37 @@
   // ========== SES PANELİ ==========
   function buildMixer(){
     const box=$('#mixer'); if(!box) return; box.innerHTML='';
+    const premium = (AkisAudio.premiumKeys||[]);
     AkisAudio.keys.forEach(key=>{
       const row=document.createElement('div'); row.className='mix-row';
+      const kilitli = premium.indexOf(key)>=0 && !AkisStats.hasSound(key);   // ⑨ jetonla açılan ek sesler
       const v0=Math.round((+settings.mix[key]||0)*100);
-      if(v0>0) row.classList.add('on');
+      if(v0>0 && !kilitli) row.classList.add('on');
       const lbl=document.createElement('span'); lbl.className='mix-lbl'; lbl.textContent=t('amb_'+key);
-      const sl=document.createElement('input'); sl.type='range'; sl.min='0'; sl.max='100'; sl.value=v0;
-      sl.addEventListener('input', ()=>{
-        const v=+sl.value/100; settings.mix[key]=v; saveSettings();
-        AkisAudio.setTrackVolume(key, v);
-        row.classList.toggle('on', +sl.value>0);
-      });
-      row.appendChild(lbl); row.appendChild(sl); box.appendChild(row);
+      row.appendChild(lbl);
+
+      if(kilitli){
+        /* Kilitli ses: kaydırıcı yerine "jetonla aç" düğmesi.
+           🚨 Var olan sesler ASLA buraya düşmez — premium listesi tamamen yeni kanallardan oluşur. */
+        const fiyat = AkisAudio.premiumFiyat(key);
+        const b=document.createElement('button'); b.className='shop-buy'+(AkisStats.coins()>=fiyat?'':' off');
+        b.textContent = t('shop_buy')+' · '+fiyat;
+        b.addEventListener('click', ()=>{
+          const r=AkisStats.buySound(key, fiyat);
+          if(!r.ok){ toast(t(r.reason==='owned'?'shop_owned':'shop_need')); return; }
+          toast(t('shop_bought')); refreshCoinPill(); buildMixer();
+        });
+        row.appendChild(b);
+      } else {
+        const sl=document.createElement('input'); sl.type='range'; sl.min='0'; sl.max='100'; sl.value=v0;
+        sl.addEventListener('input', ()=>{
+          const v=+sl.value/100; settings.mix[key]=v; saveSettings();
+          AkisAudio.setTrackVolume(key, v);
+          row.classList.toggle('on', +sl.value>0);
+        });
+        row.appendChild(sl);
+      }
+      box.appendChild(row);
     });
   }
   function initSound(){
@@ -621,26 +737,32 @@
     });
   }
 
-  // Birkaç seans sonra bir kez "puan verir misin?" — "hayır" derse bir daha sorulmaz.
+  /* Puanlama artık MAĞAZALARIN KENDİ penceresiyle yapılıyor → js/degerlendirme.js
+     (Android: Play In-App Review · iOS: SKStoreReviewController).
+
+     🚨 Buradaki ESKİ özel pencere KALDIRILDI. Sebebi kozmetik değil, kural:
+        Google ve Apple, yerleşik puanlama akışından ÖNCE kendi sorunuzu
+        sormanızı açıkça yasaklıyor. Ayrıca eski akış TEK SEFERLİKTİ —
+        "sonra" diyen kullanıcıya bir daha hiç sorulmuyordu.
+     ✅ Kazanç: pencere kullanıcının TELEFON DİLİNDE geliyor (20 dilin
+        hepsi bedava), uygulamadan çıkarmıyor ve seyrek ama TEKRAR soruyor.
+     Eşikler degerlendirme.js › AYAR bloğunda; OTA ile mağaza güncellemesi
+     olmadan değiştirilebilir. */
   function maybeAskRating(){
-    if(!isNative()) return;
-    try{ if(localStorage.getItem(RATE_KEY)==='1') return; }catch(e){ return; }
-    if(AkisStats.itemCount() < RATE_AFTER) return;
-    setTimeout(()=>{
-      openModal({
-        title: t('rate_ask_title'),
-        bodyHTML: `<p>${esc(t('rate_ask_body'))}</p>`,
-        actions: [
-          {label:t('rate_no'), cls:'ghost', fn:()=>{ try{ localStorage.setItem(RATE_KEY,'1'); }catch(e){} }},
-          {label:t('rate_yes'), cls:'primary', fn:openStore}
-        ]
-      });
-    }, 1200);
+    try{ if(window.AkoraPuan && AkoraPuan.seansBitti) return AkoraPuan.seansBitti(); }catch(e){}
   }
 
   function initSupport(){
     const bt=$('#btn-tour');  if(bt) bt.addEventListener('click', ()=>startTour(true));
-    const br=$('#btn-rate');  if(br) br.addEventListener('click', openStore);
+    /* Menüden "Uygulamayı puanla": ÖNCE yerleşik pencereyi dene (uygulamadan
+       çıkarmaz, kullanıcının dilinde gelir). Mağaza kotası dolu ya da eklenti
+       yoksa mağaza sayfasına düş — kullanıcı bir şeye bastı, bir şey olmalı. */
+    const br=$('#btn-rate');
+    if(br) br.addEventListener('click', async ()=>{
+      let oldu=false;
+      try{ if(window.AkoraPuan && AkoraPuan.elle) oldu = await AkoraPuan.elle(); }catch(e){}
+      if(!oldu) openStore();
+    });
     const bs=$('#btn-share'); if(bs) bs.addEventListener('click', shareApp);
   }
 
@@ -683,42 +805,260 @@
     openModal({ title:t('timeline_title'), bodyHTML:`<div class="tl-wrap">${govde}</div>` });
   }
 
+  /* ===================== BAHÇEM (2026-08-27) =====================
+     Dekore edilebilir izometrik alan. Ağaçlar ve satın alınan süsler
+     istenen hücreye sürüklenir; yerleşim cihazda saklanır. */
+  function openPlot(){
+    // ana ekrandaki mini orman arkada çizmeye devam etmesin
+    try{ const mc=$('#pond-mini'); if(mc && mc._mounted){ AkisGarden.unmount(mc); mc._mounted=false; } }catch(e){}
+    show('view-plot');
+    const cv=$('#plot-cv');
+    requestAnimationFrame(()=>{ try{ AkisPlot.mount(cv); }catch(e){ console && console.warn(e); } });
+  }
+  function closePlot(){
+    try{ AkisPlot.unmount(); }catch(e){}
+    // 2026-08-29: Bahçem artık menüdeki orman kartından da açılıyor;
+    // oradan gelindiyse istatistiğe değil ANA EKRANA dönülür.
+    if(window.__akoraPlotEve){ window.__akoraPlotEve=false; show('view-home'); return; }
+    show('view-stats'); openStats(); refreshPondMini();
+  }
+  function initPlot(){
+    const b=$('#btn-plot');   if(b) b.addEventListener('click', openPlot);
+    // ana ekrandaki mini orman görseline dokununca da bahçe açılsın (kullanıcı isteği)
+    const mini=$('#pond-mini');
+    if(mini){ mini.style.cursor='pointer'; mini.addEventListener('click', openPlot); }
+    const g=$('#plot-back');  if(g) g.addEventListener('click', closePlot);
+    const r=$('#plot-reset'); if(r) r.addEventListener('click', ()=>{
+      openModal({ title:t('plot_reset_title'), bodyHTML:`<p>${esc(t('plot_reset_body'))}</p>`,
+        actions:[{label:t('cancel'), cls:'ghost'},
+                 {label:t('reset_ok'), cls:'danger', fn:()=>{ try{ AkisPlot.sifirla(); }catch(e){} }}] });
+    });
+  }
+
   /* ===================== SÜS DÜKKÂNI + JETON (2026-08-27) =====================
      Odaklanılan her dakika 1 jeton. Jetonlar ormana süs açar.
      ⚠️ Var olan hiçbir şey kilitlenmedi — yalnız YENİ süsler eklendi. */
   const DECOS=[
-    {id:'flowers', fiyat:60,  ad:'deco_flowers', sim:'🌸'},
-    {id:'rock',    fiyat:90,  ad:'deco_rock',    sim:'🪨'},
-    {id:'lantern', fiyat:150, ad:'deco_lantern', sim:'🏮'},
-    {id:'bench',   fiyat:240, ad:'deco_bench',   sim:'🪑'},
-    {id:'pond',    fiyat:380, ad:'deco_pond',    sim:'💧'},
-    {id:'fox',     fiyat:600, ad:'deco_fox',     sim:'🦊'}
+    {id:'flowers', fiyat:60,  ad:'deco_flowers', sim:'\u{1F338}'},
+    {id:'rock',    fiyat:90,  ad:'deco_rock',    sim:'\u{1FAA8}'},
+    {id:'lantern', fiyat:150, ad:'deco_lantern', sim:'\u{1F3EE}'},
+    {id:'bench',   fiyat:240, ad:'deco_bench',   sim:'\u{1FA91}'},
+    {id:'pond',    fiyat:380, ad:'deco_pond',    sim:'\u{1F4A7}'},
+    {id:'fox',     fiyat:600, ad:'deco_fox',     sim:'\u{1F98A}'}
   ];
+  const ZEMINLER=[
+    {id:'grass',  fiyat:0,   ad:'ground_grass',  renk:'#438a55'},
+    {id:'meadow', fiyat:120, ad:'ground_meadow', renk:'#5da255'},
+    {id:'sand',   fiyat:200, ad:'ground_sand',   renk:'#cbab72'},
+    {id:'stone',  fiyat:320, ad:'ground_stone',  renk:'#7c868c'},
+    {id:'snow',   fiyat:450, ad:'ground_snow',   renk:'#d6e2ea'},
+    {id:'night',  fiyat:700, ad:'ground_night',  renk:'#31485f'}
+  ];
+  /* Ağaç TÜRLERİ (2026-08-29) — renkten farklı: gövde ve taç biçimi değişir.
+     Görseller CC0 (Wenrexa, OpenGameArt) → www/assets/agac/turler/<id>.webp
+     Lisans kaydı: _tasarim/varliklar/KAYNAKLAR.md */
+  /* FİYAT MERDİVENİ (2026-08-29, rakip ölçümüne göre ayarlandı)
+     Kazanç: 1 odak dakikası = 1 jeton. Forest'ta 10 dk = 3 jeton (0,3/dk) —
+     yani biz 3,3 KAT cömertiz. Forest'ın EN UCUZ ağacı 600 jeton ≈ 33 saat odak
+     ve en sık şikâyeti "ağaçlar çok pahalı". Bizde merdiven şöyle kuruldu:
+       giriş   150–350  → 2,5–6 saat  (ilk hafta içinde birkaç tanesi alınır)
+       orta    450–650  → 7,5–11 saat
+       uzun    800–1000 → 13–17 saat  (en pahalısı bile Forest'ın EN UCUZUNUN yarısı)
+     Toplam 9 ağaç = 4950 jeton ≈ 82 saat odak. Günlük giriş + görevlerle
+     (~75 jeton/gün ek) bu süre pratikte yarıya iner. */
+  const AGAC_TURLERI=[
+    {id:'klasik',  fiyat:0,   ad:'tur_klasik'},
+    {id:'mese',    fiyat:150, ad:'tur_mese'},
+    {id:'turuncu', fiyat:250, ad:'tur_turuncu'},
+    {id:'kavak',   fiyat:350, ad:'tur_kavak'},
+    {id:'alev',    fiyat:450, ad:'tur_alev'},
+    {id:'altin',   fiyat:550, ad:'tur_altin'},
+    {id:'leylak',  fiyat:650, ad:'tur_leylak'},
+    {id:'bonsai',  fiyat:800, ad:'tur_bonsai'},
+    {id:'sogut',   fiyat:900, ad:'tur_sogut'},
+    {id:'kis',     fiyat:1000,ad:'tur_kis'}
+  ];
+  function agacTurGorsel(id){
+    return id==='klasik' ? 'assets/agac/tree.webp' : 'assets/agac/turler/'+id+'.webp';
+  }
+
+  const PALETLER=[
+    {id:'forest', fiyat:0,   ad:'pal_forest'},
+    {id:'sakura', fiyat:250, ad:'pal_sakura'},
+    {id:'autumn', fiyat:350, ad:'pal_autumn'},
+    {id:'frost',  fiyat:500, ad:'pal_frost'},
+    {id:'golden', fiyat:700, ad:'pal_golden'},
+    {id:'mor',    fiyat:900, ad:'pal_mor'}
+  ];
+  const HAVALAR=[
+    {id:'clear',   fiyat:0,   ad:'wx_clear',   sim:'☀️'},
+    {id:'firefly', fiyat:180, ad:'wx_firefly', sim:'✨'},
+    {id:'rain',    fiyat:300, ad:'wx_rain',    sim:'🌧️'},
+    {id:'snow',    fiyat:420, ad:'wx_snow',    sim:'❄️'},
+    {id:'fog',     fiyat:560, ad:'wx_fog',     sim:'🌫️'}
+  ];
+  let shopSekme='tree';
+
   function refreshCoinPill(){
     const el=$('#coin-pill'); if(el) el.textContent=t('coins_have',{n:AkisStats.coins()});
   }
+  function paletNokta(id){
+    let c=[90,170,118];
+    try{ c=AkisGarden.paletRenk(id); }catch(e){}
+    return '<span class="shop-sw" style="background:rgb('+c[0]+','+c[1]+','+c[2]+')"></span>';
+  }
+  /* onizle: {id, tur, ek} verilirse satır tıklanabilir olur ve büyük önizleme açar */
+  function satirHTML(sim, ad, sag, onizle){
+    const oz = onizle
+      ? ' data-onizle="'+esc(onizle.id)+'" data-onizle-ad="'+esc(ad)+'"'+
+        ' data-onizle-tur="'+esc(onizle.tur)+'" data-onizle-ek="'+esc(onizle.ek||'')+'"'
+      : '';
+    return '<li'+oz+'><span class="shop-ic">'+sim+'</span><span class="shop-name">'+esc(ad)+'</span>'+sag+'</li>';
+  }
+  function alDugmesi(tur, id, fiyat, yeter){
+    return '<button class="shop-buy'+(yeter?'':' off')+'" data-tur="'+tur+'" data-id="'+id+'">'+esc(t('shop_buy'))+' · '+fiyat+'</button>';
+  }
+  function secDugmesi(tur, id, aktif){
+    return aktif ? '<span class="shop-own">'+esc(t('shop_active'))+'</span>'
+                 : '<button class="shop-use" data-tur="'+tur+'" data-id="'+id+'">'+esc(t('shop_use'))+'</button>';
+  }
+
   function shopHTML(){
     const jeton=AkisStats.coins();
-    return `<p class="shop-hint">${esc(t('shop_hint'))}</p>`+
-      `<p class="shop-bal">${esc(t('coins_have',{n:jeton}))}</p>`+
-      `<ul class="shop-list">`+DECOS.map(d=>{
-        const var_=AkisStats.hasDeco(d.id), yeter=jeton>=d.fiyat;
-        const dugme = var_ ? `<span class="shop-own">${esc(t('shop_owned'))}</span>`
-                           : `<button class="shop-buy${yeter?'':' off'}" data-id="${d.id}">${esc(t('shop_buy'))} · ${d.fiyat}</button>`;
-        return `<li><span class="shop-ic">${d.sim}</span><span class="shop-name">${esc(t(d.ad))}</span>${dugme}</li>`;
-      }).join('')+`</ul>`;
+    const sekmeler=[['tree','agac_tur'],['deco','shop_tab_deco'],['ground','shop_tab_ground'],
+                    ['pal','shop_tab_pal'],['wx','shop_tab_wx'],['grow','shop_tab_grow']];
+    let govde='';
+
+    if(shopSekme==='tree'){
+      const sahip=AkisStats.ownedTrees(), akt=AkisStats.activeTree();
+      govde='<ul class="shop-list">'+AGAC_TURLERI.map(function(a){
+        const v=sahip.indexOf(a.id)>=0, yeter=jeton>=a.fiyat;
+        const kucuk='<img class="shop-agac" src="'+agacTurGorsel(a.id)+'" alt="" loading="lazy">';
+        return satirHTML(kucuk, t(a.ad),
+                         v ? secDugmesi('tree',a.id,akt===a.id) : alDugmesi('tree',a.id,a.fiyat,yeter),
+                         {id:a.id, tur:'tree'});
+      }).join('')+'</ul>';
+    } else if(shopSekme==='deco'){
+      govde='<ul class="shop-list">'+DECOS.map(function(d){
+        const varMi=AkisStats.hasDeco(d.id), yeter=jeton>=d.fiyat;
+        return satirHTML(d.sim, t(d.ad), varMi ? '<span class="shop-own">'+esc(t('shop_owned'))+'</span>'
+                                              : alDugmesi('deco',d.id,d.fiyat,yeter),
+                         {id:d.id, tur:'deco', ek:d.sim});
+      }).join('')+'</ul>';
+    } else if(shopSekme==='ground'){
+      const sahip=AkisStats.ownedGrounds(), akt=AkisStats.activeGround();
+      govde='<ul class="shop-list">'+ZEMINLER.map(function(z){
+        const v=sahip.indexOf(z.id)>=0, yeter=jeton>=z.fiyat;
+        const sw='<span class="shop-sw" style="background:'+z.renk+'"></span>';
+        return satirHTML(sw, t(z.ad), v ? secDugmesi('ground',z.id,akt===z.id) : alDugmesi('ground',z.id,z.fiyat,yeter),
+                         {id:z.id, tur:'ground', ek:z.renk});
+      }).join('')+'</ul>';
+    } else if(shopSekme==='pal'){
+      const sahip=AkisStats.ownedPalettes(), akt=AkisStats.activePalette();
+      govde='<ul class="shop-list">'+PALETLER.map(function(pl){
+        const v=sahip.indexOf(pl.id)>=0, yeter=jeton>=pl.fiyat;
+        let prenk='#5aa06e';
+        try{ const c=AkisGarden.paletRenk(pl.id); prenk='rgb('+c[0]+','+c[1]+','+c[2]+')'; }catch(e){}
+        return satirHTML(paletNokta(pl.id), t(pl.ad), v ? secDugmesi('pal',pl.id,akt===pl.id) : alDugmesi('pal',pl.id,pl.fiyat,yeter),
+                         {id:pl.id, tur:'pal', ek:prenk});
+      }).join('')+'</ul>';
+    } else if(shopSekme==='wx'){
+      const sahip=AkisStats.ownedWeathers(), akt=AkisStats.activeWeather();
+      govde='<ul class="shop-list">'+HAVALAR.map(function(w){
+        const v=sahip.indexOf(w.id)>=0, yeter=jeton>=w.fiyat;
+        return satirHTML(w.sim, t(w.ad), v ? secDugmesi('wx',w.id,akt===w.id) : alDugmesi('wx',w.id,w.fiyat,yeter),
+                         {id:w.id, tur:'wx', ek:w.sim});
+      }).join('')+'</ul>';
+    } else {
+      const n=AkisStats.plotSize(), f=AkisStats.expandPrice(), olur=AkisStats.canExpand();
+      govde='<p class="shop-hint">'+esc(t('grow_body',{n:n,m:n*n}))+'</p>'+
+        (olur ? '<ul class="shop-list">'+satirHTML('\u{1F3DD}️', t('grow_one',{n:n+1}), alDugmesi('grow','plot',f, jeton>=f))+'</ul>'
+              : '<div class="empty-row">'+esc(t('grow_max'))+'</div>');
+    }
+
+    return '<div class="shop-tabs">'+sekmeler.map(function(x){
+        return '<button class="shop-tab'+(shopSekme===x[0]?' on':'')+'" data-sekme="'+x[0]+'">'+esc(t(x[1]))+'</button>';
+      }).join('')+'</div>'+
+      '<p class="shop-bal">'+esc(t('coins_have',{n:jeton}))+'</p>'+govde+
+      '<p class="shop-hint">'+esc(t('shop_hint'))+'</p>';
   }
+
+  /* Dükkân önizlemesi: modal'ın üstünde ayrı bir katman.
+     Dükkânı KAPATMAZ — kapanınca kullanıcı listeye geri döner. */
+  function onizleAc(id, ad, tur, ek){
+    let k=$('#shop-onizle');
+    if(!k){
+      k=document.createElement('div'); k.id='shop-onizle'; k.className='shop-onizle';
+      k.innerHTML='<div class="so-kart">'+
+        '<button class="so-x" aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>'+
+        '<div class="so-gorsel"></div><p class="so-ad"></p></div>';
+      document.body.appendChild(k);
+      k.addEventListener('click', function(e){ if(e.target===k || e.target.closest('.so-x')) k.classList.remove('open'); });
+    }
+    // Ağaçta gerçek görsel; zemin/renkte büyük renk alanı; süs/havada büyük simge.
+    let ic;
+    if(tur==='tree')                      ic='<img src="'+agacTurGorsel(id)+'" alt="">';
+    else if(tur==='ground'||tur==='pal')  ic='<span class="so-renk" style="background:'+esc(ek||'#ccc')+'"></span>';
+    else                                  ic='<span class="so-sim">'+(ek||'')+'</span>';
+    k.querySelector('.so-gorsel').innerHTML=ic;
+    k.querySelector('.so-ad').textContent=ad||'';
+    k.classList.add('open');
+  }
+
   function openShop(){
     openModal({ title:t('shop_title'), bodyHTML:shopHTML() });
-    const govde=$('#modal-body');
-    govde.querySelectorAll('.shop-buy').forEach(b=>{
-      b.addEventListener('click', ()=>{
-        const d=DECOS.find(x=>x.id===b.dataset.id); if(!d) return;
-        const r=AkisStats.buyDeco(d.id, d.fiyat);
-        if(!r.ok){ toast(t(r.reason==='poor'?'shop_need':'shop_owned')); return; }
-        toast(t('shop_bought'));
-        refreshCoinPill(); refreshPondMini();
-        openShop();                       // listeyi yeniden çiz + düğmeleri bağla
+    baglaShop();
+  }
+  function tazeleShop(){
+    const g=$('#modal-body'); if(!g) return;
+    g.innerHTML=shopHTML(); baglaShop();
+    refreshCoinPill(); refreshPondMini();
+    try{ AkisPlot.rebuild(); }catch(e){}
+    try{ if(window.AkisPlot && AkisPlot.gorselTemizle) AkisPlot.gorselTemizle(); }catch(e){}
+    try{ if(window.AkoraAna && AkoraAna.yenile) AkoraAna.yenile(); }catch(e){}
+  }
+  function baglaShop(){
+    const g=$('#modal-body'); if(!g) return;
+    g.querySelectorAll('.shop-tab').forEach(function(b){
+      b.addEventListener('click', function(){ shopSekme=b.dataset.sekme; tazeleShop(); });
+    });
+    g.querySelectorAll('.shop-buy').forEach(function(b){
+      b.addEventListener('click', function(){
+        const tur=b.dataset.tur, id=b.dataset.id;
+        let r;
+        if(tur==='tree'){ const a=AGAC_TURLERI.find(function(x){return x.id===id;}); r=AkisStats.buyTree(id,a.fiyat); }
+        else if(tur==='deco'){ const d=DECOS.find(function(x){return x.id===id;}); r=AkisStats.buyDeco(id,d.fiyat); }
+        else if(tur==='ground'){ const z=ZEMINLER.find(function(x){return x.id===id;}); r=AkisStats.buyGround(id,z.fiyat); }
+        else if(tur==='pal'){ const pl=PALETLER.find(function(x){return x.id===id;}); r=AkisStats.buyPalette(id,pl.fiyat); }
+        else if(tur==='wx'){ const w=HAVALAR.find(function(x){return x.id===id;}); r=AkisStats.buyWeather(id,w.fiyat); }
+        else { r=AkisStats.expandPlot(); }
+        if(!r || !r.ok){
+          toast(t(r && r.reason==='owned' ? 'shop_owned' : (r && r.reason==='max' ? 'grow_max' : 'shop_need')));
+          return;
+        }
+        toast(t(tur==='grow' ? 'grow_done' : 'shop_bought'));
+        tazeleShop();
+      });
+    });
+    /* Büyük önizleme (2026-08-29 kullanıcı isteği): satıra dokununca ne aldığını
+       ortada büyük görsel olarak görsün. Al/Kullan düğmeleri bundan etkilenmez. */
+    g.querySelectorAll('li[data-onizle]').forEach(function(li){
+      li.addEventListener('click', function(e){
+        if(e.target.closest('button')) return;      // Al / Kullan tıklaması değil
+        onizleAc(li.dataset.onizle, li.dataset.onizleAd, li.dataset.onizleTur, li.dataset.onizleEk);
+      });
+    });
+
+    g.querySelectorAll('.shop-use').forEach(function(b){
+      b.addEventListener('click', function(){
+        const tur=b.dataset.tur, id=b.dataset.id;
+        if(tur==='tree') AkisStats.setTree(id);
+        else if(tur==='ground') AkisStats.setGround(id);
+        else if(tur==='wx') AkisStats.setWeather(id);
+        else AkisStats.setPalette(id);
+        try{ if(window.AkisPlot && AkisPlot.gorselTemizle) AkisPlot.gorselTemizle(); }catch(e){}
+        try{ if(window.AkoraAna && AkoraAna.yenile) AkoraAna.yenile(); }catch(e){}
+        tazeleShop();
       });
     });
   }
@@ -739,12 +1079,34 @@
     // ---- VERİ YEDEĞİ: dışa aktar (paylaş/panoya) + geri yükle (yapıştır) ----
     const be=$('#btn-backup'), bi=$('#btn-restore');
     if(be) be.addEventListener('click', async ()=>{
-      const veri=AkisStats.exportData();
+      let veri=AkisStats.exportData();
+      // Kitaplık ayrı bir depoda tutuluyor; yedeğe ONU DA koy (ömür boyu veri kuralı)
+      try{
+        if(window.AkoraKitaplik){
+          const o=JSON.parse(veri); o.kitaplik=AkoraKitaplik.disa(); veri=JSON.stringify(o);
+        }
+      }catch(e){}
       try{
         const Share = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Share;
         if(isNative() && Share && Share.share){ await Share.share({ title:'Akis backup', text:veri }); return; }
       }catch(e){ return; }   // paylaşımdan vazgeçti → sessiz
-      try{ await navigator.clipboard.writeText(veri); toast(t('backup_copied')); }catch(e){}
+      /* 🪤 Panoya yazma sessizce patlayabilir (odaklanmamış sayfa, izin yok,
+         güvensiz bağlam). Eskiden `catch(e){}` bunu yutuyordu ve düğme
+         hiçbir şey yapmıyor gibi görünüyordu. Artık tutmazsa yedeği
+         ekranda gösteriyoruz — kullanıcı elle kopyalayabilir. */
+      try{
+        await navigator.clipboard.writeText(veri);
+        toast(t('backup_copied'));
+      }catch(e){
+        openModal({
+          title: t('backup_export'),
+          bodyHTML: `<p>${esc(t('backup_copy_manual'))}</p>
+            <textarea class="restore-ta" rows="6" readonly>${esc(veri)}</textarea>`,
+          actions:[{label:t('cancel'), cls:'ghost'}]
+        });
+        setTimeout(()=>{ const ta=document.querySelector('#modal .restore-ta');
+          if(ta){ ta.focus(); ta.select(); } }, 120);
+      }
     });
     if(bi) bi.addEventListener('click', ()=>{
       openModal({
@@ -754,7 +1116,9 @@
           {label:t('cancel'), cls:'ghost'},
           {label:t('backup_import'), cls:'primary', fn:()=>{
             const v=($('#restore-ta')||{}).value||'';
-            if(AkisStats.importData(v)){ toast(t('restore_done')); openStats(); refreshPondMini(); }
+            if(AkisStats.importData(v)){
+              try{ if(window.AkoraKitaplik){ const o=JSON.parse(v); if(o && o.kitaplik) AkoraKitaplik.ice(o.kitaplik); } }catch(e){}
+              toast(t('restore_done')); openStats(); refreshPondMini(); }
             else toast(t('restore_fail'));
           }}
         ]
@@ -787,17 +1151,281 @@
     }
     const ph=$('#pond-stats-h'); if(ph) ph.textContent='🌳 '+t('forest_stats_title',{n:AkisStats.itemCount()});
     refreshCoinPill();
-    // haftalık grafik (gün adları yerel) — barlar tıklanabilir
-    const wk=AkisStats.last7(AkisI18n.current()); const max=Math.max(30,...wk.map(d=>d.minutes));
-    $('#week-chart').innerHTML = wk.map(d=>
-      `<div class="week-bar" data-date="${d.date}" data-day="${esc(d.day)}"><div class="bar" style="height:${Math.round(d.minutes/max*100)}%"></div><span class="day">${esc(d.day)}</span></div>`
-    ).join('');
-    document.querySelectorAll('#week-chart .week-bar').forEach(bar=>{
-      bar.addEventListener('click', ()=>openDayDetail(bar.dataset.date, bar.dataset.day));
-    });
+    refreshDailyCard();      // ② günlük check-in + görevler · ⑦ aylık mücadele
+    refreshPeriod();         // ④ Gün/Hafta/Ay/Yıl grafiği
+    refreshTagBreakdown();   // ③ etikete göre zaman dağılımı
     show('view-stats');
     requestAnimationFrame(()=>AkisGarden.mount($('#pond-full'), AkisStats.items()));
   }
+
+  /* ================= AKORA_YENI_EKRANLAR (2026-08-28) =================
+     Forest denetiminden çıkan eksikler. Hepsi CİHAZDA çalışır, hesap istemez. */
+
+  // ---- ③ ETİKETLER ----
+  function etiketAdi(id){
+    const t0 = AkisStats.tagById(id);
+    if(t0 && t0.ozel) return t0.ad;                 // kullanıcının kendi etiketi: çevrilmez
+    return t('tag_' + (id||'other'));
+  }
+  function etiketRengi(id){
+    const t0 = AkisStats.tagById(id);
+    return (t0 && t0.renk) || '#9aa7b4';
+  }
+  function refreshTagRow(){
+    const box=$('#tag-row'); if(!box) return;
+    const aktif=AkisStats.activeTag();
+    box.innerHTML = AkisStats.tags().map(tg=>
+      `<button class="tag-chip${tg.id===aktif?' on':''}" data-tag="${esc(tg.id)}">
+         <span class="dot" style="background:${esc(tg.renk)}"></span>${esc(etiketAdi(tg.id))}
+       </button>`).join('') +
+      `<button class="tag-chip add" id="tag-add-btn">+ ${esc(t('tag_new'))}</button>`;
+    box.querySelectorAll('.tag-chip[data-tag]').forEach(b=>{
+      b.addEventListener('click', ()=>{ AkisStats.setActiveTag(b.dataset.tag); refreshTagRow(); });
+    });
+    const ekle=$('#tag-add-btn');
+    if(ekle) ekle.addEventListener('click', yeniEtiketSor);
+  }
+  function yeniEtiketSor(){
+    openModal({
+      title:t('tag_new'),
+      bodyHTML:`<input id="tag-ad" class="restore-ta" style="font-family:inherit;font-size:15px;height:44px" maxlength="20" placeholder="${esc(t('tags_title'))}">`,
+      actions:[
+        {label:t('cancel'), cls:'ghost'},
+        {label:t('checkin_get'), cls:'primary', fn:()=>{
+          const v=($('#tag-ad')||{}).value||'';
+          const renkler=['#e879a6','#6ef0d6','#f4cd76','#7bd88f','#9d8df1','#5ec2f0'];
+          const yeni=AkisStats.addTag(v, renkler[(AkisStats.tags().length)%renkler.length]);
+          if(yeni){ AkisStats.setActiveTag(yeni.id); refreshTagRow(); }
+        }}
+      ]
+    });
+    setTimeout(()=>{ const i=$('#tag-ad'); if(i) i.focus(); }, 120);
+  }
+
+  // ---- ⑤ FAVORİLERİM ----
+  const FAVKEY='akis.fav.v1';
+  function favOku(){ try{ return JSON.parse(localStorage.getItem(FAVKEY))||[]; }catch(e){ return []; } }
+  function favYaz(l){ try{ localStorage.setItem(FAVKEY, JSON.stringify(l.slice(0,6))); }catch(e){} }
+  function favEkle(){
+    const l=favOku();
+    const f={ mode:settings.mode, workMin:settings.workMin, breakMin:settings.breakMin,
+              visual:settings.visual, background:settings.background, tag:AkisStats.activeTag() };
+    f.ad = (f.mode==='custom' ? f.workMin+' dk' : t('mode_'+f.mode)) + ' · ' + etiketAdi(f.tag);
+    if(l.some(x=>x.ad===f.ad)) { toast(t('fav_saved')); return; }
+    l.unshift(f); favYaz(l); refreshFavRow(); toast(t('fav_saved'));
+  }
+  function favUygula(f){
+    settings.mode=f.mode; settings.workMin=f.workMin; settings.breakMin=f.breakMin;
+    settings.visual=f.visual; settings.background=f.background;
+    AkisStats.setActiveTag(f.tag);
+    saveSettings();
+    try{ selectMode(settings.mode); }catch(e){}
+    refreshTagRow(); refreshFavRow();
+    try{ applyVisualPick && applyVisualPick(); }catch(e){}
+  }
+  function refreshFavRow(){
+    const box=$('#fav-row'); if(!box) return;
+    const l=favOku();
+    box.innerHTML = l.map((f,i)=>
+      `<button class="tag-chip" data-fav="${i}"><span class="dot" style="background:${esc(etiketRengi(f.tag))}"></span>${esc(f.ad)}</button>`
+    ).join('') + `<button class="tag-chip add" id="fav-add-btn">+ ${esc(t('fav_add'))}</button>`;
+    box.querySelectorAll('[data-fav]').forEach(b=>{
+      b.addEventListener('click', ()=>favUygula(l[+b.dataset.fav]));
+      b.addEventListener('contextmenu', e=>{ e.preventDefault();
+        const k=favOku(); k.splice(+b.dataset.fav,1); favYaz(k); refreshFavRow(); });
+    });
+    const a=$('#fav-add-btn'); if(a) a.addEventListener('click', favEkle);
+  }
+
+  // ---- ② GÜNLÜK CHECK-IN + GÖREVLER · ⑦ AYLIK MÜCADELE ----
+  function gorevMetni(g){
+    if(g.tur==='dakika')     return t('q_odak',  {n:g.hedef});
+    if(g.tur==='seans')      return t('q_seans', {n:g.hedef});
+    if(g.tur==='tekseans')   return t('q_uzun',  {n:g.hedef});
+    if(g.tur==='sabah')      return t('q_sabah');
+    if(g.tur==='aksam')      return t('q_aksam');
+    return '';
+  }
+  function refreshDailyCard(){
+    const box=$('#daily-card'); if(!box) return;
+    const ci=AkisStats.checkinDurum();
+    const gv=AkisStats.gunlukGorevler();
+    const ay=AkisStats.aylikMucadele();
+
+    let h = `<div class="dc-head">
+        <div><b>${esc(t('checkin'))}</b>
+          <div class="dc-sub">${esc(ci.seri>0 ? t('checkin_streak',{n:ci.seri}) : t('daily_title'))}</div></div>
+        <button class="dc-btn" id="dc-checkin" ${ci.alindiMi?'disabled':''}>
+          ${ci.alindiMi ? esc(t('checkin_done')) : esc(t('checkin_get'))+' +'+ci.odul}
+        </button>
+      </div><div class="dc-sep"></div>
+      <div class="dc-sub">${esc(t('quests'))}</div>`;
+
+    gv.forEach(g=>{
+      const yuzde = Math.round(Math.min(1, g.ilerleme/g.hedef)*100);
+      h += `<div class="dc-quest${g.bitti?' bitti':''}">
+          <span class="qt">${esc(gorevMetni(g))}</span>
+          <button class="dc-btn" data-gorev="${esc(g.id)}" ${(!g.bitti||g.alindi)?'disabled':''}>
+            ${g.alindi ? '✓' : '+'+g.odul}
+          </button>
+        </div><div class="dc-bar"><i style="width:${yuzde}%"></i></div>`;
+    });
+
+    const ayYuzde = Math.round(Math.min(1, ay.gun/ay.hedef)*100);
+    h += `<div class="dc-sep"></div>
+      <div class="dc-quest${ay.bitti?' bitti':''}">
+        <span class="qt"><b>${esc(t('monthly'))}</b><br>${esc(t('monthly_body',{n:ay.gun,m:ay.hedef}))}</span>
+        <button class="dc-btn" id="dc-aylik" ${(!ay.bitti||ay.alindi)?'disabled':''}>
+          ${ay.alindi ? '✓' : '+'+ay.odul}
+        </button>
+      </div><div class="dc-bar"><i style="width:${ayYuzde}%"></i></div>`;
+
+    box.innerHTML=h;
+
+    const cb=$('#dc-checkin');
+    if(cb) cb.addEventListener('click', ()=>{
+      const r=AkisStats.checkinAl();
+      if(r.ok){ toast('+'+r.odul+' 🪙'); refreshDailyCard(); refreshCoinPill(); }
+    });
+    box.querySelectorAll('[data-gorev]').forEach(b=>b.addEventListener('click', ()=>{
+      const r=AkisStats.gorevOdulAl(b.dataset.gorev);
+      if(r.ok){ toast('+'+r.odul+' 🪙'); refreshDailyCard(); refreshCoinPill(); }
+    }));
+    const ab=$('#dc-aylik');
+    if(ab) ab.addEventListener('click', ()=>{
+      const r=AkisStats.aylikOdulAl();
+      if(r.ok){ toast('+'+r.odul+' 🪙'); refreshDailyCard(); refreshCoinPill(); }
+    });
+  }
+
+  // ---- ④ DÖNEM GRAFİKLERİ (Gün / Hafta / Ay / Yıl) ----
+  let aktifDonem='hafta';
+  function refreshPeriod(){
+    const wc=$('#week-chart'); if(!wc) return;
+    const seri=AkisStats.donemSerisi(aktifDonem, AkisI18n.current());
+    const toplam=seri.reduce((a,b)=>a+b.dk,0);
+    const max=Math.max(30,...seri.map(x=>x.dk));
+    const saatlik = (aktifDonem==='gun');
+    const n = seri.length;
+    wc.classList.toggle('saatlik', saatlik);
+    /* 🪤 2026-08-29: Ay (30 sütun) ve Yıl'da her sütuna etiket yazılınca
+       yazılar sığmayıp grafiğin dışına taşıyordu. Sütun sayısına göre
+       hem etiket sıklığı hem boşluk daraltılır. */
+    wc.classList.toggle('yogun', n > 14);
+    const adim = n <= 8 ? 1 : (n <= 14 ? 2 : (n <= 24 ? 3 : 5));
+
+    if(toplam <= 0){
+      wc.innerHTML = `<p class="grafik-bos">${esc(t('no_sessions'))}</p>`;
+    }else{
+      wc.innerHTML = seri.map((x,i)=>{
+        const et = (i % adim === 0) ? x.etiket : '';
+        return `<div class="week-bar" data-i="${i}"><div class="bar" style="height:${Math.round(x.dk/max*100)}%"></div><span class="day">${esc(et)}</span></div>`;
+      }).join('');
+    }
+    const tp=$('#period-total');
+    if(tp) tp.textContent = t('p_total', {n: seri.reduce((a,b)=>a+b.dk,0)});
+    // Hafta görünümünde barlara dokununca gün detayı (eski davranış korunur)
+    if(aktifDonem==='hafta'){
+      const wk=AkisStats.last7(AkisI18n.current());
+      wc.querySelectorAll('.week-bar').forEach((bar,i)=>{
+        if(!wk[i]) return;
+        bar.addEventListener('click', ()=>openDayDetail(wk[i].date, wk[i].day));
+      });
+    }
+    document.querySelectorAll('#period-tabs .ptab').forEach(b=>
+      b.classList.toggle('on', b.dataset.p===aktifDonem));
+    // "Detay için bir güne dokun" yalnız Hafta'da anlamlı (tıklanan tek dönem o)
+    const ip=document.querySelector('#view-stats .chart-hint');
+    if(ip) ip.style.display = (aktifDonem==='hafta') ? '' : 'none';
+  }
+  function initPeriodTabs(){
+    document.querySelectorAll('#period-tabs .ptab').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        aktifDonem=b.dataset.p;
+        refreshPeriod();
+        refreshTagBreakdown();   // 🪤 dönem değişince etiket dağılımı da değişmeli (aynı sayılar kalıyordu)
+      });
+    });
+  }
+  function refreshTagBreakdown(){
+    const box=$('#tag-breakdown'); if(!box) return;
+    const gun = aktifDonem==='gun'?1 : aktifDonem==='hafta'?7 : aktifDonem==='ay'?30 : 365;
+    const d=AkisStats.tagBreakdown(gun);
+    if(!d.length){ box.innerHTML=`<p class="chart-hint">${esc(t('no_sessions'))}</p>`; return; }
+    const top=d[0].dk||1;
+    box.innerHTML=d.slice(0,7).map(x=>
+      `<div class="tb-row">
+         <span class="tb-name">${esc(etiketAdi(x.id))}</span>
+         <span class="tb-bar"><i class="tb-fill" style="width:${Math.round(x.dk/top*100)}%;background:${esc(etiketRengi(x.id))}"></i></span>
+         <span class="tb-val">${esc(t('dur_min',{n:x.dk}))}</span>
+       </div>`).join('');
+  }
+
+
+  /* ---- ⑧⑩⑪ YENİ AYARLAR (2026-08-28) ----
+     ⑧ Derin Odak artık VARSAYILAN AÇIK: rakipte ceza varsayılan açık ve motivasyonun kaynağı o.
+        (Eski kullanıcının kapalı tercihi korunur — sadece hiç seçim yapmamışlara açık gelir.)
+     ⑩ Günün başlangıç saati · ⑪ Aşan süreyi say */
+  function initYeniAyarlar(){
+    const ov=$('#set-overtime'), ovv=$('#set-overtime-v');
+    function ovYaz(){ if(ovv) ovv.textContent = settings.overtime ? '✓' : '—'; }
+    if(ov){
+      ovYaz();
+      try{ AkisTimer.setOvertime(!!settings.overtime); }catch(e){}
+      ov.addEventListener('click', ()=>{
+        settings.overtime=!settings.overtime; saveSettings();
+        try{ AkisTimer.setOvertime(settings.overtime); }catch(e){}
+        ovYaz();
+      });
+    }
+    const ds=$('#set-daystart'), dsv=$('#set-daystart-v');
+    function dsYaz(){ if(dsv) dsv.textContent = String(AkisStats.dayStart()).padStart(2,'0')+':00'; }
+    if(ds){
+      dsYaz();
+      ds.addEventListener('click', ()=>{
+        // 0,2,4,6 saat seçenekleri — gece çalışanlar için yeterli, uzun liste gerekmez
+        const secenek=[0,2,3,4,5,6];
+        const simdi=AkisStats.dayStart();
+        const sonraki=secenek[(secenek.indexOf(simdi)+1) % secenek.length];
+        AkisStats.setDayStart(sonraki); dsYaz();
+        if($('#view-stats').classList.contains('active')) openStats();
+      });
+    }
+  }
+
+
+  /* ---- ⑥ SEANSTA SESSİZLİK (2026-08-28) ----
+     Odak başlayınca "Rahatsız Etme" açılır, seans bitince kapanır. İzin yoksa bir kez ayar
+     ekranına yönlendirilir. Native eklenti yoksa (web/iOS) sessizce atlanır. */
+  function OB(){ try{ return window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.OdakBildirim; }catch(e){ return null; } }
+  async function sessizAyarla(ac){
+    if(!settings.dnd) return;
+    const p=OB(); if(!p || !p.sessizMod) return;
+    try{
+      const r = await p.sessizMod({ac:!!ac});
+      if(r && r.izinYok && ac){
+        settings.dnd=false; saveSettings(); dndYaz();
+        toast(t('set_dnd_perm'));
+        try{ await p.sessizIzinIste(); }catch(e){}
+      }
+    }catch(e){}
+  }
+  function dndYaz(){ const v=$('#set-dnd-v'); if(v) v.textContent = settings.dnd ? '✓' : '—'; }
+  function initSessiz(){
+    const b=$('#set-dnd'); if(!b) return;
+    dndYaz();
+    b.addEventListener('click', async ()=>{
+      settings.dnd=!settings.dnd; saveSettings(); dndYaz();
+      if(settings.dnd){
+        const p=OB();
+        if(p && p.sessizMod){
+          const r=await p.sessizMod({ac:false});      // izni yokla, açma
+          if(r && r.izinYok){ toast(t('set_dnd_perm')); try{ await p.sessizIzinIste(); }catch(e){} }
+        }
+      }
+    });
+  }
+
   function refreshPondMini(){
     const cv=$('#pond-mini'); if(!cv) return;
     AkisGarden.update(cv, AkisStats.items());
@@ -867,10 +1495,99 @@
   function releaseWakeLock(){ try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(e){} }
 
   document.addEventListener('visibilitychange', ()=>{
-    if(document.hidden && AkisTimer.running && AkisTimer.phase==='work'){ /* mobilde katı mod eklenecek */ }
-    // Geri dönüşte wake lock'u yeniden al (tarayıcı/WebView arka planda otomatik bırakır)
-    if(!document.hidden && AkisTimer.running){ requestWakeLock(); }
+    const seansta = $('#view-focus').classList.contains('active');
+    if(document.hidden){
+      // Arka plana geçerken bildirimi ve diske yazılan oturumu TAM O AN tazele:
+      // JS birazdan donacak, çubukta kalan bilgi bu anın bilgisi olsun.
+      if(seansta) syncNotifs({arkaPlan:true});
+    }else{
+      // Geri dönüşte wake lock'u yeniden al (tarayıcı/WebView arka planda otomatik bırakır)
+      if(AkisTimer.running) requestWakeLock();
+      if(seansta) syncNotifs();
+    }
   });
+
+  /* Capacitor App durum olayı — visibilitychange'in native karşılığı.
+     Ana (orta) tuşla arka plana alma, bildirime dokunup geri dönme buradan gelir. */
+  function initAppState(){
+    const cap=window.Capacitor;
+    const App = cap && cap.Plugins && cap.Plugins.App;
+    if(!App || !App.addListener) return;
+    App.addListener('appStateChange', (st)=>{
+      const seansta = $('#view-focus').classList.contains('active');
+      if(!seansta) return;
+      if(st && st.isActive){ requestWakeLock(); syncNotifs(); }
+      else { syncNotifs({arkaPlan:true}); }
+    });
+  }
+
+  /* Açılışta yarım kalmış seansı geri yükle (uygulama arka planda öldürüldüyse).
+     Sayaç duvar saatine göre ilerletilir; geri sayımda hedefi AŞAMAZ. */
+  function oturumGeriYukle(){
+    let d=null;
+    try{ d=JSON.parse(localStorage.getItem(OKEY)||'null'); }catch(e){}
+    geriYuklemeDenendi=true;                       // bundan sonra kayda yazmak/silmek serbest
+    if(!d || !d.cfg || !d.ts) return false;
+    const gecenSn=(Date.now()-d.ts)/1000;
+    if(gecenSn<0 || gecenSn*1000>OTURUM_TAZE_MS){ oturumSil(); return false; }
+
+    /* 🪤 2026-08-29 KULLANICI HATASI: "uygulamayı açar açmaz geri sayım başlıyor".
+       Zinciri şöyleydi:
+         1) 30 dk'lık seans başlatılıp uygulamadan çıkılmış.
+         2) Saatler sonra açılışta geri yükleme elapsed'i hedefe KIRPIP odak
+            ekranını açıyor → seans bitmiş olduğu hâlde ekranda duruyor.
+         3) Odak ekranı açık olduğu için oturumKaydet() kaydı TAZE ts ile
+            yeniden yazıyor (running:false, elapsed==target).
+         4) Sonraki açılışta kayıt "taze" göründüğü için 2. adım tekrarlıyor.
+            → Kayıt kendi kendini besleyen bir döngüye giriyor, HİÇ silinmiyor.
+
+       Kural: BİTMİŞ seans geri yüklenmez — duraklamış olsa bile.
+       (Yalnız `d.running` bakmak yetmiyordu; 3. adımdaki kayıt duraklamış.) */
+    const BOS_SINIR = 2*3600;                     // ucu açık/aşan seansta uzak kalma sınırı
+    const acikUclu  = !!(d.countUp || d.overtime);
+    if(acikUclu){
+      if(d.running && gecenSn > BOS_SINIR){ oturumSil(); return false; }
+    }else{
+      const varilan = d.elapsed + (d.running ? gecenSn : 0);
+      if(!(d.targetSec > 0) || varilan >= d.targetSec){ oturumSil(); return false; }
+    }
+
+    if(d.running){
+      d.elapsed = d.countUp ? (d.elapsed + gecenSn)
+                            : Math.min(d.targetSec, d.elapsed + gecenSn);
+    }
+    if(!AkisTimer.geriYukle(d)) return false;
+
+    task = d.task || '';
+    committedWork = !!d.committedWork;
+    paleFlag = !!d.paleFlag;
+
+    $('#focus-task').textContent = task || '';
+    AkisVisual.setType(settings.visual);
+    AkisVisual.setPhase(AkisTimer.phase==='work' ? 'work' : 'break');
+    show('view-focus');
+    enterFullscreen();          // normal seansla aynı görünsün (native'de çalışır, web'de sessizce geçer)
+    applyBackground(settings.background);
+    requestAnimationFrame(()=>{ AkisVisual.resize(); AkisVisual.start(); });
+    pushState();
+    showChrome();
+
+    /* Ses, tarayıcı/WebView kuralı gereği dokunmadan başlayamaz — karışım kurulur,
+       ilk dokunuşta açılır. */
+    try{
+      AkisAudio.applyMix(settings.mix);
+      AkisAudio.setMusicVolume(settings.musicVol/100);
+      if(settings.music && settings.music!=='off') AkisAudio.setMusic(settings.music);
+      document.addEventListener('pointerdown', ()=>{
+        try{ AkisAudio.resumeAll(); AkisAudio.resumeMusic(); }catch(e){}
+      }, {once:true});
+    }catch(e){}
+
+    if(d.running){ AkisTimer.start(); setPlayIcon(true); requestWakeLock(); }
+    else { setPlayIcon(false); }
+    syncNotifs();
+    return true;
+  }
 
   // ========== DİL SEÇİCİ ==========
   function initLang(){
@@ -893,6 +1610,7 @@
   function onLangChange(){
     refreshPondMini();
     refreshBreakChips();
+    refreshTagRow(); refreshFavRow();
     buildMixer();
     pushState();
     if($('#view-stats').classList.contains('active')) openStats();
@@ -917,10 +1635,19 @@
       if($('#modal').classList.contains('open')){ closeModal(); return; }
       if(!$('#break-sheet').classList.contains('hidden')){ closeBreakSheet(); return; }
       if($('#lang-panel').classList.contains('open')){ $('#lang-panel').classList.remove('open'); syncBackdrop(); return; }
+      // 1b) Yeni kabuk: menü çekmecesi / alt sayfa açıksa önce onu kapat (2026-08-28)
+      if(document.querySelector('.ak-menu.open, .ak-sheet.open')){
+        try{ window.AkoraAna && AkoraAna.hepsiKapat(); }catch(e){}
+        return;
+      }
       if($('#sound-panel').classList.contains('open')){ toggleDrawer(false); return; }
       if(!$('#flow-prompt').classList.contains('hidden')){ hideFlow(); return; }
       // 2) İstatistik ekranı → ana sayfaya dön
       if($('#view-stats').classList.contains('active')){ AkisGarden.unmount($('#pond-full')); show('view-home'); refreshPondMini(); return; }
+      // 2b) Takvim ve Bahçem de geri tuşunu bilsin — yoksa buradan uygulamadan çıkılıyordu
+      if($('#view-takvim') && $('#view-takvim').classList.contains('active')){ show('view-home'); return; }
+      if($('#view-kitaplik') && $('#view-kitaplik').classList.contains('active')){ show('view-home'); return; }
+      if($('#view-plot').classList.contains('active')){ show('view-home'); return; }
       // 3) Odak ekranı → çıkış onayı (X ile aynı; çalışılan süre kaydedilir)
       if($('#view-focus').classList.contains('active')){ requestExit(); return; }
       // 4) Ana sayfadayız → çıkmak için iki kez geri
@@ -934,14 +1661,17 @@
   // ========== başlat ==========
   function init(){
     AkisVisual.init($('#visual-canvas'));
-    initHome(); initFocus(); initSound(); initStats(); initLang(); initModal(); initBackButton(); initFocusGestures(); initPremium(); initSupport();
+    initHome(); initFocus(); initSound(); initStats(); initLang(); initModal(); initBackButton(); initFocusGestures(); initPremium(); initSupport(); initPlot(); initAppState(); initPeriodTabs(); initYeniAyarlar(); initSessiz();
     AkisI18n.apply();
     AkisI18n.onChange(onLangChange);
     refreshBreakChips();
+    refreshTagRow(); refreshFavRow();   // ③ etiket · ⑤ favoriler
     if(window.AkisNotify) AkisNotify.init();
     if(window.AkisAds){ AkisAds.init(window.AkisPremium ? AkisPremium.isPremium() : false); refreshPremiumUI(); setTimeout(()=>{ refreshPremiumUI(); }, 3000); }  // CTA tazele. AÇILIŞ REKLAMI KALDIRILDI (2026-08-08): AdMob "app load" interstitial'ını YASAKLIYOR (yasak yerleşimler); açılış için ayrı App Open formatı gerekir, eklentide yok (issue #167).
     window.addEventListener('orientationchange', ()=>{ setTimeout(()=>AkisVisual.resize(), 250); });
-    if(tourNeeded()) setTimeout(()=>startTour(), 700);   // ilk açılış tanıtımı
+    // Yarım kalmış seans varsa doğrudan odak ekranıyla aç (bildirime dokununca da buraya düşer)
+    const devam = oturumGeriYukle();
+    if(!devam && tourNeeded()) setTimeout(()=>startTour(), 700);   // ilk açılış tanıtımı
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
   else init();
