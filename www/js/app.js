@@ -56,15 +56,25 @@
      Kurulum/güncelleme sonrası ESKİ sürümün bıraktığı oturum kaydı hâlâ
      duruyor ve ilk açılışta geri yükleniyordu. Sürüm damgası değiştiyse
      kayıt koşulsuz atılır → güncelleme sonrası HER ZAMAN temiz açılış. */
-  (function surumTemizligi(){
+  /* 🪤 2026-08-30 (2. NÜKS, cihazda): damga regexi `[0-9.]+` idi → `2.8.2b/c/d`
+     gibi HARF EKLİ damgada yalnız "2.8.2" yakalanıyordu. 2.8.2 → 2.8.2d güncellemesinde
+     damga DEĞİŞMEMİŞ görünüyor, eski oturum kaydı atılmıyor ve uygulama yine
+     "sayaç çalışır hâlde" açılıyordu. Aynı hata `denetim_yapi.mjs`'te bulunup
+     düzeltilmişti; app.js'teki İKİZİ atlanmıştı.
+     Kural: damga TIRNAĞA/&'e kadar OLDUĞU GİBİ okunur, hiçbir karakteri kırpılmaz. */
+  const APP_SURUM = (function(){
     try{
       const sc = document.querySelector('script[src*="app.js"]');
-      const m  = sc && sc.getAttribute('src').match(/[?&]v=([0-9.]+)/);
-      const su = m ? m[1] : '0';
+      const m  = sc && sc.getAttribute('src').match(/[?&]v=([^&"'\s]+)/);
+      return m ? m[1] : '0';
+    }catch(e){ return '0'; }
+  })();
+  (function surumTemizligi(){
+    try{
       const SK = 'akora.surum';
-      if(localStorage.getItem(SK) !== su){
+      if(localStorage.getItem(SK) !== APP_SURUM){
         localStorage.removeItem(OKEY);
-        localStorage.setItem(SK, su);
+        localStorage.setItem(SK, APP_SURUM);
       }
     }catch(e){}
   })();
@@ -79,6 +89,7 @@
       if(!$('#view-focus').classList.contains('active')){ localStorage.removeItem(OKEY); return; }
       const d=AkisTimer.durum();
       d.ts=Date.now(); d.task=task; d.committedWork=committedWork; d.paleFlag=paleFlag;
+      d.v=APP_SURUM;                               // kaydı YAZAN sürüm (başka sürümün kaydı geri yüklenmez)
       localStorage.setItem(OKEY, JSON.stringify(d));
     }catch(e){}
   }
@@ -108,11 +119,43 @@
 
   function esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  // ---- ekran geçişi ----
+  /* ---- ekran gecisi + EKRAN YASAM DONGUSU KAYDI (2026-08-30) ----
+     KALICI DERS: show() bir ekrani KAPATMAZ, yalniz gizler. Gizli kalan canvas
+        60 fps cizmeye devam eder -> telefon isinir, uygulama takilir. 2.8.1'de
+        Bahcem'den DONANIM GERI tusuyla cikinca tam bu oldu: unmount yalniz
+        ekrandaki geri okuna bagliydi, geri tusu yolunda yoktu.
+     KURAL: ekran degistiren TEK kapi show(). Bir ekranin kapaninca durmasi
+        gereken seyi (canvas dongusu, dinleyici) varsa BURAYA yazilir; boylece
+        hangi yoldan cikildiginin (ekran dugmesi / donanim geri / menu) onemi kalmaz.
+     YENI EKRAN EKLERKEN: dongusu varsa EKRAN_KAPANIS'a, acilinca tazelenmesi
+        gereken sey varsa EKRAN_ACILIS'a bir satir ekle.
+     BEKCI: scripts/denetim_yasamdongusu.mjs - tablosuz dongu birakirsan bagirir. */
+  const EKRAN_KAPANIS = {
+    'view-plot' : ()=>{ try{ AkisPlot.unmount(); }catch(e){} },                    // Bahcem izometrik dongusu
+    'view-stats': ()=>{ try{ AkisGarden.unmount($('#pond-full')); }catch(e){} },   // buyuk orman canvas'i
+    'view-focus': ()=>{ try{ AkisVisual.stop(); }catch(e){} },                     // kum saati / halka dongusu
+    'view-home' : ()=>{ try{ const cv=$('#pond-mini'); if(cv && cv._mounted){ AkisGarden.unmount(cv); cv._mounted=false; } }catch(e){} }
+  };
+  const EKRAN_ACILIS = {
+    'view-home' : ()=>{ try{ refreshPondMini(); }catch(e){} }
+  };
   function show(id){
+    const eski = document.querySelector('.view.active');
+    const eskiId = eski ? eski.id : '';
+    if(eskiId && eskiId !== id && EKRAN_KAPANIS[eskiId]){ try{ EKRAN_KAPANIS[eskiId](); }catch(e){} }
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     $('#'+id).classList.add('active');
+    if(eskiId !== id && EKRAN_ACILIS[id]){ try{ EKRAN_ACILIS[id](); }catch(e){} }
+    /* ☁️ EKRAN REKLAM KAPILARI (2026-08-30) — hepsi bulut ayarında VARSAYILAN KAPALI.
+       Sonradan "Bahçem açılışında reklam olsun" denirse ayar dosyasında true yapmak yeter,
+       mağaza güncellemesi gerekmez. Beklemesiz: kullanıcı ekranı görür, reklam üstüne gelir. */
+    if(eskiId !== id){ try{ const k=EKRAN_REKLAM_KAPISI[id]; if(k && window.AkisAds && AkisAds.kapiSessiz) AkisAds.kapiSessiz(k); }catch(e){} }
   }
+  const EKRAN_REKLAM_KAPISI = { 'view-plot':'bahce', 'view-stats':'istatistik',
+                                'view-kitaplik':'kitaplik', 'view-takvim':'takvim' };
+  /* takvim.js ve kitaplik.js kendi gorunum()'unu bu kapiya baglar - yoksa
+     onlarin gecisleri temizlik tablosunu atlar. */
+  try{ window.AkoraEkran = { goster: show }; }catch(e){}
 
   // ========== HOME ==========
   function initHome(){
@@ -166,9 +209,12 @@
       if(bg && bg!=='none'){ ch.classList.add('bg-card'); ch.style.backgroundImage=`url('assets/video/posters/${bg}.jpg')`; }
       else ch.classList.add('bg-card','bg-card-none');
     });
-    $('#btn-start').addEventListener('click', ()=>{
-      // REKLAM YOK (kullanıcı kararı 2026-08-08): odaklanma anı kutsal. Reklam yerleşimi:
-      // çalışma bitip MOLAYA girerken + moladan DERSE dönerken (doğal geçiş noktaları).
+    $('#btn-start').addEventListener('click', async ()=>{
+      // 2026-08-08 kararı: odaklanma anı kutsal → burada reklam YOK.
+      // ☁️ 30 Ağu: kapı KODDA hazır ama bulut ayarında VARSAYILAN KAPALI. Açılırsa
+      // reklam seans başlamadan ÖNCE gösterilir, kapanınca seans başlar.
+      try{ if(window.AkisAds && AkisAds.onSessionStart) await AkisAds.onSessionStart(); }catch(e){}
+      if(!$('#view-home').classList.contains('active')) return;   // reklam sürerken başka ekrana geçildiyse
       startSession();
     });
     $('#btn-stats').addEventListener('click', openStats);
@@ -205,8 +251,8 @@
   function startSession(){
     committedWork=false;
     paleFlag=false; awayAt=0;
-    // Ana ekrandaki orman canvas'ı seans boyunca arkada 60fps çizmesin (pil) — çıkışta refreshPondMini yeniden bağlar
-    try{ const cv=$('#pond-mini'); if(cv && cv._mounted){ AkisGarden.unmount(cv); cv._mounted=false; } }catch(e){}
+    // Ana ekran ormanini seans boyunca arkada cizdirmeme isi artik show()'daki
+    // EKRAN_KAPANIS tablosunda (view-home kapanisi) - tek kapi, tek yer.
     AkisTimer.configure(buildCfg());
     $('#focus-task').textContent = task || '';
     AkisVisual.setType(settings.visual);
@@ -381,7 +427,13 @@
     hideFlow(); closeBreakSheet(); toggleDrawer(false);
     show('view-home');
     refreshPondMini();   // ÖNCE ana ekrana geç, SONRA ormanı bağla (sıra önemli: refresh, view-home aktif değilse mount atlar)
-    maybeAskRating();          // birkaç seans biriktiyse bir kez puan sor (ana ekrana döndükten sonra)
+    /* İLK seanstan sonra bir kez hesap teklifi (hesap.js › teklifEt).
+       Sıra önemli: teklif çıktıysa puanlama penceresi AÇILMAZ — iki pencere
+       üst üste binmesin. Teklif zaten yalnız ilk seansta, puanlama birkaç
+       seans sonra çıkıyor; yine de garanti altına alınıyor. */
+    let teklifCikti = false;
+    try{ if(window.AkoraHesap && AkoraHesap.teklifEt) teklifCikti = AkoraHesap.teklifEt(); }catch(e){}
+    if(!teklifCikti) maybeAskRating();   // birkaç seans biriktiyse bir kez puan sor (ana ekrana döndükten sonra)
   }
 
   function applyPhaseVisual(){ pushState(); }
@@ -809,14 +861,14 @@
      Dekore edilebilir izometrik alan. Ağaçlar ve satın alınan süsler
      istenen hücreye sürüklenir; yerleşim cihazda saklanır. */
   function openPlot(){
-    // ana ekrandaki mini orman arkada çizmeye devam etmesin
-    try{ const mc=$('#pond-mini'); if(mc && mc._mounted){ AkisGarden.unmount(mc); mc._mounted=false; } }catch(e){}
+    // ana ekran ormaninin durmasi show()'daki EKRAN_KAPANIS'ta (view-home)
     show('view-plot');
     const cv=$('#plot-cv');
     requestAnimationFrame(()=>{ try{ AkisPlot.mount(cv); }catch(e){ console && console.warn(e); } });
   }
   function closePlot(){
-    try{ AkisPlot.unmount(); }catch(e){}
+    // AkisPlot.unmount() show()'daki EKRAN_KAPANIS['view-plot'] tarafindan yapilir
+    // (donanim geri tusundan cikista da calissin diye oraya tasindi, 2026-08-30).
     // 2026-08-29: Bahçem artık menüdeki orman kartından da açılıyor;
     // oradan gelindiyse istatistiğe değil ANA EKRANA dönülür.
     if(window.__akoraPlotEve){ window.__akoraPlotEve=false; show('view-home'); return; }
@@ -1071,21 +1123,19 @@
 
   // ========== İSTATİSTİK + ORMAN ==========
   function initStats(){
-    $('#stats-back').addEventListener('click', ()=>{ AkisGarden.unmount($('#pond-full')); show('view-home'); refreshPondMini(); });
+    $('#stats-back').addEventListener('click', ()=>{ show('view-home'); });   // temizlik + orman tazeleme: show() tablosu
     $('#btn-today-sessions').addEventListener('click', openTodaySessions);
     const tl=$('#btn-timeline'); if(tl) tl.addEventListener('click', openTimeline);
-    const sh=$('#btn-shop');     if(sh) sh.addEventListener('click', openShop);
+    const sh=$('#btn-shop');     if(sh) sh.addEventListener('click', ()=>{ openShop();
+      try{ if(window.AkisAds && AkisAds.kapiSessiz) AkisAds.kapiSessiz('dukkan'); }catch(e){} });   // ☁️ varsayılan KAPALI
 
     // ---- VERİ YEDEĞİ: dışa aktar (paylaş/panoya) + geri yükle (yapıştır) ----
     const be=$('#btn-backup'), bi=$('#btn-restore');
     if(be) be.addEventListener('click', async ()=>{
-      let veri=AkisStats.exportData();
-      // Kitaplık ayrı bir depoda tutuluyor; yedeğe ONU DA koy (ömür boyu veri kuralı)
-      try{
-        if(window.AkoraKitaplik){
-          const o=JSON.parse(veri); o.kitaplik=AkoraKitaplik.disa(); veri=JSON.stringify(o);
-        }
-      }catch(e){}
+      /* Yedeğin içeriği TEK YERDE kurulur → js/yedek.js › AkoraYedek.
+         (İstatistik + Kitaplık + Bahçem yerleşimi + uygulama ayarları.) */
+      let veri;
+      try{ veri=AkoraYedek.metin(); }catch(e){ veri=AkisStats.exportData(); }
       try{
         const Share = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Share;
         if(isNative() && Share && Share.share){ await Share.share({ title:'Akis backup', text:veri }); return; }
@@ -1116,9 +1166,16 @@
           {label:t('cancel'), cls:'ghost'},
           {label:t('backup_import'), cls:'primary', fn:()=>{
             const v=($('#restore-ta')||{}).value||'';
-            if(AkisStats.importData(v)){
-              try{ if(window.AkoraKitaplik){ const o=JSON.parse(v); if(o && o.kitaplik) AkoraKitaplik.ice(o.kitaplik); } }catch(e){}
-              toast(t('restore_done')); openStats(); refreshPondMini(); }
+            let oldu=false;
+            try{ oldu=AkoraYedek.uygula(v); }catch(e){ oldu=false; }
+            if(oldu){
+              toast(t('restore_done'));
+              /* 🪤 Ayarlar ve Bahçem yerleşimi de geri geldiği için YENİDEN
+                 YÜKLEMEK ŞART: bellekteki eski yerleşim, kullanıcı Bahçem'i bir
+                 daha açtığında geri yüklenen veriyi ÜSTÜNE YAZARDI (sessiz kayıp).
+                 hesap.js'in buluttan geri yükleme yolu da aynısını yapıyor. */
+              setTimeout(()=>location.reload(), 800);
+            }
             else toast(t('restore_fail'));
           }}
         ]
@@ -1136,8 +1193,7 @@
     });
   }
   function openStats(){
-    // Ana ekran mini-ormanı istatistik açıkken arkada çizmesin (stats-back'teki refreshPondMini geri bağlar)
-    try{ const cv=$('#pond-mini'); if(cv && cv._mounted){ AkisGarden.unmount(cv); cv._mounted=false; } }catch(e){}
+    // Ana ekran ormaninin durmasi/geri baglanmasi show() tablosunda (EKRAN_KAPANIS/ACILIS)
     $('#st-today').textContent = AkisStats.todayMinutes();
     $('#st-streak').textContent = AkisStats.streak();
     $('#st-total').textContent = AkisStats.totalHours().toFixed(1);
@@ -1528,6 +1584,9 @@
     try{ d=JSON.parse(localStorage.getItem(OKEY)||'null'); }catch(e){}
     geriYuklemeDenendi=true;                       // bundan sonra kayda yazmak/silmek serbest
     if(!d || !d.cfg || !d.ts) return false;
+    /* İKİNCİ KAPI (30 Ağu): kaydı yazan sürüm bu sürüm değilse geri yüklenmez.
+       Yukarıdaki temizlik bir sebeple çalışmazsa bile kurulum sonrası açılış TEMİZ kalır. */
+    if(d.v !== APP_SURUM){ oturumSil(); return false; }
     const gecenSn=(Date.now()-d.ts)/1000;
     if(gecenSn<0 || gecenSn*1000>OTURUM_TAZE_MS){ oturumSil(); return false; }
 
@@ -1642,9 +1701,9 @@
       }
       if($('#sound-panel').classList.contains('open')){ toggleDrawer(false); return; }
       if(!$('#flow-prompt').classList.contains('hidden')){ hideFlow(); return; }
-      // 2) İstatistik ekranı → ana sayfaya dön
-      if($('#view-stats').classList.contains('active')){ AkisGarden.unmount($('#pond-full')); show('view-home'); refreshPondMini(); return; }
-      // 2b) Takvim ve Bahçem de geri tuşunu bilsin — yoksa buradan uygulamadan çıkılıyordu
+      // 2) Alt ekranlar -> ana sayfaya don. Canvas donguleri show()'daki EKRAN_KAPANIS
+      //    tablosunda kapanir; burada ayrica unmount cagirmak GEREKMEZ (ve unutulamaz).
+      if($('#view-stats').classList.contains('active')){ show('view-home'); return; }
       if($('#view-takvim') && $('#view-takvim').classList.contains('active')){ show('view-home'); return; }
       if($('#view-kitaplik') && $('#view-kitaplik').classList.contains('active')){ show('view-home'); return; }
       if($('#view-plot').classList.contains('active')){ show('view-home'); return; }
@@ -1667,7 +1726,10 @@
     refreshBreakChips();
     refreshTagRow(); refreshFavRow();   // ③ etiket · ⑤ favoriler
     if(window.AkisNotify) AkisNotify.init();
-    if(window.AkisAds){ AkisAds.init(window.AkisPremium ? AkisPremium.isPremium() : false); refreshPremiumUI(); setTimeout(()=>{ refreshPremiumUI(); }, 3000); }  // CTA tazele. AÇILIŞ REKLAMI KALDIRILDI (2026-08-08): AdMob "app load" interstitial'ını YASAKLIYOR (yasak yerleşimler); açılış için ayrı App Open formatı gerekir, eklentide yok (issue #167).
+    if(window.AkisAds){ AkisAds.init(window.AkisPremium ? AkisPremium.isPremium() : false); refreshPremiumUI(); setTimeout(()=>{ refreshPremiumUI(); }, 3000);
+      /* ☁️ AÇILIŞ KAPISI — bulut ayarında VARSAYILAN KAPALI. ⚠️ AdMob politikası uygulama
+         açılışında interstitial'ı yasaklıyor; açmak kullanıcının kararı ve riskidir. */
+      setTimeout(()=>{ try{ if(AkisAds.onAppOpen) AkisAds.onAppOpen(); }catch(e){} }, 2500); }  // CTA tazele. AÇILIŞ REKLAMI KALDIRILDI (2026-08-08): AdMob "app load" interstitial'ını YASAKLIYOR (yasak yerleşimler); açılış için ayrı App Open formatı gerekir, eklentide yok (issue #167).
     window.addEventListener('orientationchange', ()=>{ setTimeout(()=>AkisVisual.resize(), 250); });
     // Yarım kalmış seans varsa doğrudan odak ekranıyla aç (bildirime dokununca da buraya düşer)
     const devam = oturumGeriYukle();

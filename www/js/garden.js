@@ -1,4 +1,4 @@
-/* ===== garden.js — "Akış Ormanı" (gamification) =====
+/* ===== garden.js — "Akora Ormanı" (gamification) =====
    Her tamamlanan odak seansı ormana bir ağaç ekler. Ağacın evresi süreye bağlı:
    sprout(filiz) < sapling(fidan) < tree(ağaç) < bigtree(ulu ağaç).
    Konumlar index'ten deterministik türetilir → orman hep aynı görünür, birikir.

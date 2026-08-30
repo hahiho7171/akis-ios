@@ -51,26 +51,64 @@
   let kullanici = null;      // {uid, email, displayName} | null
   let mesgul = false;
 
+  /* ---------------- ZAMAN AŞIMI (2026-08-30) ----------------
+     🚨 2.8.1 KUSURU: sar() bir sözü sonsuza kadar bekliyordu. Native hesap
+        seçici kaydırılarak kapatıldığında signInWithGoogle() sözü HİÇ çözülmüyor;
+        `mesgul` true takılı kalıyor ve paneldeki HER düğme sessizce ölüyordu.
+        Kullanıcı bunu "ayarlarda hesabıma tıklayınca Google tıklanmıyor" diye
+        bildirdi. Artık her işlemin bir süresi var; süre dolunca panel açılır.
+     ℹ️ Zaman aşımı native işlemi İPTAL ETMEZ, yalnız paneli serbest bırakır.
+        Giriş geç de olsa tamamlanırsa `authStateChange` dinleyicisi ekranı tazeler. */
+  const SURE_GIRIS = 45000;   // native hesap seçici açıkken kullanıcı da bekletir
+  const SURE_AG    = 25000;   // yalnız ağ işlemi (yedekle / geri yükle / şifre)
+  function sureli(fn, ms){
+    return Promise.race([
+      Promise.resolve().then(fn),
+      new Promise((_, ret) => setTimeout(() => ret({ code:'akora/zaman-asimi' }), ms))
+    ]);
+  }
+
+  /* ---------------- İLK AÇILIŞ MÜHRÜ (2026-08-30) ----------------
+     🚨 KULLANICI BİLDİRİMİ: "Google çıkmadan otomatikman giriş yaptı."
+        İki ayrı sebebi vardı:
+        · Android: Auto Backup, Firebase oturumunu (SharedPreferences) geri
+          yüklüyordu → android/app/src/main/res/xml/yedek_kurallari.xml ile kapatıldı.
+        · iOS: Keychain uygulama SİLİNSE BİLE telefonda kalır; yeniden kurunca
+          oturum aynen geri gelir. Orada yedek kuralı yoktur — çözüm burada olmalı.
+     ✅ KURAL: uygulama verisi TERTEMİZ (yeni kurulum) ama native tarafta oturum
+        duruyorsa, o oturum bu kurulumun değildir → kapatılır, kullanıcı hesabını
+        kendi seçer. Güncellemede (veri var, mühür yok) hiçbir şey yapılmaz. */
+  const MUHUR = 'akora.kurulum';
+  function yerelVeriVarMi(){
+    try{
+      const anahtarlar = ['akis.stats.v1','akis.settings.v1','akora.plot.v1','akis.kitap.v1','akis.lang'];
+      for(let i=0;i<anahtarlar.length;i++) if(localStorage.getItem(anahtarlar[i])) return true;
+      return false;
+    }catch(e){ return true; }   // okuyamıyorsak riskli iş yapma: oturuma dokunma
+  }
+  async function muhurKontrol(){
+    let m = null;
+    try{ m = localStorage.getItem(MUHUR); }catch(e){ return; }
+    if(m) return;                                  // bu kurulum daha önce mühürlendi
+    const temizKurulum = !yerelVeriVarMi();
+    try{ localStorage.setItem(MUHUR, new Date().toISOString()); }catch(e){}
+    if(!temizKurulum) return;                      // güncelleme — girişli kullanıcı girişli kalsın
+    try{ const a = Auth(); if(a) await sureli(() => a.signOut(), 8000); }catch(e){}
+  }
+
   /* ---------------- yedek verisi ---------------- */
 
-  /* Yedeğin içeriği: app.js'in dışa aktardığı ile AYNI biçim.
-     Böylece panoya aktarma ve bulut yedeği tek bir gerçeği paylaşır. */
+  /* Yedeğin içeriği artık TEK YERDE: js/yedek.js › AkoraYedek.
+     Panoya aktarma (app.js) ve bulut yedeği aynı gerçeği paylaşır — eskiden
+     ikisi ayrı kuruluyordu ve ikisinde de Bahçem yerleşimi + ayarlar eksikti. */
   function yedekTopla(){
-    let o = {};
-    try{ o = JSON.parse(AkisStats.exportData()); }catch(e){ o = {app:'akis', v:1}; }
-    try{ if(window.AkoraKitaplik) o.kitaplik = AkoraKitaplik.disa(); }catch(e){}
-    o.cihazSaati = new Date().toISOString();
-    return o;
+    try{ return AkoraYedek.topla(); }catch(e){ return {app:'akis', v:1}; }
   }
   function yedekBoyutu(o){
     try{ return new Blob([JSON.stringify(o)]).size; }catch(e){ return JSON.stringify(o).length; }
   }
   function yedekUygula(o){
-    if(!o) return false;
-    let tamam = false;
-    try{ tamam = AkisStats.importData(o); }catch(e){}
-    try{ if(o.kitaplik && window.AkoraKitaplik) AkoraKitaplik.ice(o.kitaplik); }catch(e){}
-    return tamam;
+    try{ return AkoraYedek.uygula(o); }catch(e){ return false; }
   }
 
   /* ---------------- bulut ---------------- */
@@ -126,6 +164,7 @@
 
   function hataMetni(e){
     const m = String((e && (e.message || e.code)) || '');
+    if(/zaman-asimi/.test(m)) return M('h_zaman_asimi','İşlem uzun sürdü. İnternetini kontrol edip tekrar dene.');
     if(/password.*invalid|wrong-password|INVALID_LOGIN/i.test(m)) return M('h_hata_sifre','E-posta veya şifre yanlış.');
     if(/user-not-found|EMAIL_NOT_FOUND/i.test(m))                 return M('h_hata_yok','Bu e-postayla kayıtlı hesap yok.');
     if(/email-already-in-use|EMAIL_EXISTS/i.test(m))              return M('h_hata_kayitli','Bu e-posta zaten kayıtlı. Giriş yap.');
@@ -160,13 +199,45 @@
     });
   }
 
+  /* 🚨 CREDENTIAL MANAGER KULLANILMIYOR (2026-08-30, cihazda görüldü)
+     Eklentinin Android varsayılanı `useCredentialManager: true` → Google'ın yeni
+     Credential Manager API'si. Kullanıcının telefonunda bu çağrı hesap seçiciyi
+     HİÇ AÇMADI, ne `onResult` ne `onError` döndü ve ekran tamamen kilitlendi:
+     panelin çarpısı bile çalışmıyordu, 45 sn'lik JS zaman aşımı da devreye giremedi
+     (arayüz bloke olunca setTimeout da ateşlenemiyor).
+     `useCredentialManager: false` eklentiyi klasik `GoogleSignInClient` yoluna
+     sokar: hesap seçici ayrı bir Activity olarak açılır, kullanıcı iptal etse bile
+     sonuç DÖNER, arayüz kilitlenmez.
+     Ölçümle elenenler (tekrar deneme): APK imzası Firebase'de kayıtlı ·
+     googleid sınıfları (116) pakette · `default_web_client_id` APK'da doğru. */
+  /* HESAP SEÇİCİYİ GERİ GETİR (2026-08-30)
+     Klasik GoogleSignInClient yolunda Android son kullanılan hesabı hatırlıyor ve
+     seçiciyi atlıyor. Eklentinin signOut()'u yalnız Credential Manager durumunu
+     temizlediği için işe yaramıyor. Yerel `GoogleHesap` eklentisi (proje kaynağında,
+     android/app/src/main/java/.../GoogleHesapPlugin.java) doğrudan
+     GoogleSignInClient.signOut() çağırıyor → seçici tekrar açılıyor.
+     ⚠️ Bu adım girişin ÖNÜNÜ TIKAMAZ: eklenti yoksa (iOS/tarayıcı) atlanır,
+     asılırsa 6 sn sonra yine de girişe devam edilir. */
+  const SURE_HESAP_UNUT = 6000;
+  function GH(){ try{ return Capacitor.Plugins.GoogleHesap || null; }catch(e){ return null; } }
+  async function googleHesabiUnut(){
+    const g = GH(); if(!g || !g.unut) return;
+    try{
+      await Promise.race([
+        g.unut(),
+        new Promise(cz => setTimeout(cz, SURE_HESAP_UNUT))
+      ]);
+    }catch(e){}
+  }
+
   async function girisGoogle(){
     const a = Auth(); if(!a) return uyar(M('h_yalniz_uygulama','Bu özellik yalnız uygulamada çalışır.'));
     await sar(async () => {
-      await a.signInWithGoogle();
+      await googleHesabiUnut();
+      await a.signInWithGoogle({ useCredentialManager:false });
       await kullaniciTazele();
       await girisSonrasi();
-    });
+    }, SURE_GIRIS);
   }
 
   async function girisApple(){
@@ -175,7 +246,7 @@
       await a.signInWithApple();
       await kullaniciTazele();
       await girisSonrasi();
-    });
+    }, SURE_GIRIS);
   }
 
   async function cikis(){
@@ -258,7 +329,7 @@
       kullanici = null;
       ciz();
       uyar(M('h_sil_bitti','Hesabın ve buluttaki yedeğin silindi. Uygulama bu telefonda hesapsız çalışmaya devam ediyor.'), true);
-    });
+    }, SURE_GIRIS);
   }
 
   async function sifreSifirla(){
@@ -319,18 +390,33 @@
     k.className = 'h-mesaj' + (iyi ? ' iyi' : ' kotu');
   }
 
-  async function sar(fn){
+  async function sar(fn, ms){
     if(mesgul) return;
     mesgul = true;
-    ciz();
-    try{ await fn(); uyar(''); }
+    ciz();                                   // "bekleniyor" hâli de burada çiziliyor
+    try{ await sureli(fn, ms || SURE_AG); uyar(''); }
     catch(e){ const m = hataMetni(e); if(m) uyar(m); }
     finally{ mesgul = false; ciz(); }
   }
 
   /* ---------------- ekran ---------------- */
 
+  /* ciz() = gövdeyi çiz + işlem sürüyorsa GÖRÜNÜR bekleme hâli.
+     🚨 2.8.1 KUSURU: işlem sırasında ekranda hiçbir şey değişmiyordu; kullanıcı
+        basıyor, hiçbir şey olmuyor sanıp "tıklanmıyor" diyordu. */
   function ciz(){
+    cizGovde();
+    const box = $('#h-govde');
+    if(!box) return;
+    box.classList.toggle('h-mesgul', !!mesgul);
+    if(mesgul){
+      box.insertAdjacentHTML('beforeend',
+        '<div class="h-bekle"><span class="h-donen" aria-hidden="true"></span>' +
+        esc(M('h_bekle','Bekleniyor…')) + '</div>');
+    }
+  }
+
+  function cizGovde(){
     const box = $('#h-govde');
     if(!box) return;
 
@@ -413,6 +499,73 @@
     if(sf) sf.addEventListener('keydown', e => { if(e.key === 'Enter') girisEposta(false); });
   }
 
+  /* ================= HESAP TEKLİF KARTI (2026-08-30) =================
+     Kullanıcı İLK odak seansını bitirip ana ekrana döndüğünde BİR KEZ çıkar.
+     "Şimdilik geç" denirse bir daha ÇIKMAZ.
+
+     🚨 NEDEN AÇILIŞTA DEĞİL: Apple 5.1.1(v) "kullanıcıya özel olmayan içerik
+        ve özellikler için kayıt zorunlu tutulamaz" diyor; bu uygulama Apple'dan
+        zaten iki kez ret yedi. Ayrıca 20 dilin mağaza metni ve panelin kendi
+        tanıtımı "hesapsız çalışır" diyor — açılışta duvar koymak o vaadi bozar.
+        Rakipler de böyle: Forest, Focus To-Do ve Flora'nın hiçbiri açılışta
+        giriş istemiyor, hesabı eşitleme gerektiğinde teklif ediyor.
+     Doğru an: kaybedilecek bir şey OLUŞTUĞU an — ilk ağaç dikildiğinde. */
+  const TEKLIF_MUHUR = 'akora.hesapTeklifi';
+
+  function teklifGoster(){
+    if(document.getElementById('hesap-kapi')) return;
+
+    const k = document.createElement('div');
+    k.id = 'hesap-kapi';
+    k.className = 'hesap-kapi';
+    k.innerHTML =
+      '<div class="hk-kart">' +
+        '<div class="hk-ic" aria-hidden="true">' +
+          '<svg viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.5-1.5A3.75 3.75 0 0 1 18 18z"/>' +
+          '<path d="M12 21v-6M9.5 17.5 12 15l2.5 2.5"/></svg>' +
+        '</div>' +
+        '<h3>' + esc(M('hk_baslik','Bu kayıt yalnız bu telefonda')) + '</h3>' +
+        '<p class="hk-not">' + esc(M('hk_govde','Ormanın, serilerin ve jetonların şu an sadece bu cihazda duruyor. Telefonunu değiştirir ya da uygulamayı silersen kaybolur. Ücretsiz bir hesapla buluta yedekleyebilirsin — zorunlu değil.')) + '</p>' +
+        '<button class="h-saglayici" id="hk-google">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3z"/><path fill="#34A853" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.7-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.4 14c-.2-.6-.3-1.3-.3-2s.1-1.4.3-2V7.4H3.1a10 10 0 0 0 0 9.2L6.4 14z"/><path fill="#EA4335" d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.8-2.8A10 10 0 0 0 3.1 7.4L6.4 10c.8-2.4 3-4.1 5.6-4.1z"/></svg>' +
+          esc(M('h_google','Google ile devam et')) + '</button>' +
+        '<button class="h-ikincil hk-eposta" id="hk-eposta">' + esc(M('h_kayit','Hesap oluştur')) + '</button>' +
+        '<button class="hk-gec" id="hk-gec">' + esc(M('hk_gec','Şimdilik geç')) + '</button>' +
+      '</div>';
+    document.body.appendChild(k);
+
+    /* Hangi düğmeye basılırsa basılsın kart bir daha çıkmaz: kullanıcı kararını
+       verdi. Girişi yarıda bıraksa bile "Hesabım" menüde duruyor. */
+    function kapat(){ try{ localStorage.setItem(TEKLIF_MUHUR, '1'); }catch(e){} k.remove(); }
+
+    const g = k.querySelector('#hk-google');
+    if(g) g.addEventListener('click', () => { kapat(); girisGoogle(); });
+
+    /* E-posta yolu kartta değil PANELDE: alanlar, "şifremi unuttum" ve hata
+       metinleri orada zaten var — ikinci bir form yazmak iki ayrı gerçek olurdu. */
+    const e = k.querySelector('#hk-eposta');
+    if(e) e.addEventListener('click', () => {
+      kapat();
+      try{ if(window.AkoraAna && AkoraAna.sheetAc) AkoraAna.sheetAc('hesap'); }catch(x){}
+    });
+
+    const gc = k.querySelector('#hk-gec');
+    if(gc) gc.addEventListener('click', kapat);
+  }
+
+  /* app.js seans bitip ana ekrana dönünce çağırır. Gösterdiyse true döner —
+     aynı anda puanlama penceresi de açılmasın diye. */
+  function teklifEt(){
+    if(!yerli()) return false;                 // tarayıcıda hesap zaten çalışmıyor
+    if(kullanici) return false;                // zaten girişli
+    try{ if(localStorage.getItem(TEKLIF_MUHUR)) return false; }catch(e){ return false; }
+    let dk = 0;
+    try{ dk = AkisStats.totalHours() * 60; }catch(e){ return false; }
+    if(dk < 1) return false;                   // henüz kaybedilecek bir şey yok
+    teklifGoster();
+    return true;
+  }
+
   /* ---------------- bağlama ---------------- */
 
   function kur(){
@@ -420,7 +573,9 @@
     ciz();
     if(!yerli()) return;
 
-    kullaniciTazele();
+    /* Önce ilk-açılış mührü (temiz kurulumda bayat oturumu kapatır), SONRA tazele.
+       Sırası önemli: tazeleme önce koşarsa panel bir an girişli görünür. */
+    muhurKontrol().then(kullaniciTazele, kullaniciTazele);
 
     /* Oturum durumu değişince ekranı tazele (başka yerden çıkış olabilir) */
     try{
@@ -449,7 +604,7 @@
      `kullanicilar/{uid}/cihazlar/...` altına yazmak için bunu çağırıyor.
      Yoksa token hiç kaydedilmez ve hata da vermez — sessiz kayıp. */
   try{ window.AkoraHesap = {
-      sil: hesabiSil, ciz, bulutaYaz, buluttanOku,
+      sil: hesabiSil, ciz, bulutaYaz, buluttanOku, teklifEt,
       kullanici: () => kullanici,
       uid: () => (kullanici && kullanici.uid) || '' }; }catch(e){}
 })();

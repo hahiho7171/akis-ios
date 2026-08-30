@@ -899,6 +899,15 @@
 .h-mesaj.kotu{color:var(--tehlike-2)}
 .h-mesaj.iyi{color:var(--basari)}
 
+/* Hesap paneli "bekleniyor" hâli — 2026-08-30.
+   2.8.1'de işlem sürerken ekranda hiçbir şey değişmiyordu; kullanıcı
+   "tıklanmıyor" diye bildirdi. Artık hem görünür hem de dokunma kilitli
+   (aynı işlem iki kez başlatılamaz). */
+.h-mesgul{pointer-events:none;opacity:.55}
+.h-bekle{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;font-weight:600}
+.h-donen{width:16px;height:16px;flex:0 0 auto;border-radius:50%;border:2px solid currentColor;border-top-color:transparent;animation:h-don .8s linear infinite}
+@keyframes h-don{to{transform:rotate(360deg)}}
+
 .h-ayrac{display:flex;align-items:center;gap:12px;color:var(--metin-2);font-size:12.5px}
 .h-ayrac::before,.h-ayrac::after{content:"";flex:1;height:1px;background:var(--cizgi)}
 
@@ -909,3 +918,35 @@
   font-family:inherit;font-size:15.5px;font-weight:650}
 .h-saglayici svg{width:20px;height:20px;flex:0 0 auto}
 .h-saglayici.h-apple{background:#000;border-color:#000;color:#fff}
+
+/* ============================================================
+   HESAP TEKLİF KARTI (2026-08-30)
+   İlk odak seansı bitince BİR KEZ çıkar; "Şimdilik geç" kapatır.
+   Güncelleme kapısıyla (.guncel-kapi) aynı görsel dil, ayrı sınıf:
+   ikisi farklı zamanlarda ve farklı kurallarla açılıyor, birbirine
+   bağlanırsa birini değiştiren ötekini sessizce bozar.
+   ============================================================ */
+.hesap-kapi{
+  position:fixed;inset:0;z-index:130;display:flex;align-items:center;justify-content:center;
+  padding:24px;background:hsl(196 45% 10% / .68);
+}
+.hk-kart{
+  width:min(88vw,360px);padding:28px 22px 16px;border-radius:var(--r-xl);
+  background:var(--zemin);color:var(--metin);text-align:center;
+  display:flex;flex-direction:column;gap:10px;
+  box-shadow:0 26px 64px hsl(196 45% 12% / .45);
+}
+.hk-ic{
+  width:62px;height:62px;margin:0 auto 4px;display:grid;place-items:center;
+  border-radius:50%;background:var(--marka-cok-acik);color:var(--marka-koyu);
+}
+.hk-ic svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.hk-kart h3{margin:0;font-size:19px;font-weight:750;letter-spacing:-.02em}
+.hk-not{margin:0 0 6px;font-size:14px;line-height:1.55;color:var(--metin-2);text-align:left}
+/* Kartta e-posta yolu ikincil: birincil vurgu Google'da (tek dokunuş). */
+.hk-eposta{font-size:15px}
+.hk-gec{
+  width:100%;margin-top:2px;padding:13px;border:0;background:transparent;cursor:pointer;
+  color:var(--metin-2);font-family:inherit;font-size:14.5px;font-weight:650;
+}

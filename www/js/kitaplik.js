@@ -134,6 +134,10 @@
   let acikKitap = null;
 
   function gorunum(id){
+    /* Ekran degistiren TEK kapi app.js'teki show() (window.AkoraEkran.goster):
+       canvas donguleri orada, EKRAN_KAPANIS tablosunda kapatiliyor. Buradan
+       dogrudan sinif degistirilirse o temizlik ATLANIR (2026-08-30 dersi). */
+    if(window.AkoraEkran && AkoraEkran.goster) return AkoraEkran.goster(id);
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
   }
 

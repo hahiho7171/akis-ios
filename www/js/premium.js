@@ -83,7 +83,14 @@ window.AkisPremium = (function () {
         .productUpdated(() => { if (ownedNow()) setPremium(true); });
       if (store.error) store.error(() => {});
       await store.initialize([Platform.GOOGLE_PLAY, Platform.APPLE_APPSTORE]);
-      setPremium(ownedNow());
+      /* 🩹 2026-08-30 (ölçümle yakalandı) — BURADA `setPremium(ownedNow())` VARDI.
+         initialize() biter bitmez mağaza henüz makbuzu yüklememiş olabiliyor ve
+         `owned()` FALSE dönüyor → ödeme yapan kullanıcının premium'u siliniyor,
+         diskteki kayıt '0'a düşüyor ve reklam açılıyordu (uygulama o anda kapanırsa
+         sonraki açılışta da reklamlı geliyordu).
+         Kural: BURADA yalnız YÜKSELTME yapılır. Aboneliğin bittiğine karar vermek
+         `receiptUpdated` olayının işi — o, mağazanın gerçek cevabıdır. */
+      if (ownedNow()) setPremium(true);
     } catch (e) {}
   }
 

@@ -26,6 +26,17 @@
   'use strict';
 
   var MANIFEST = 'https://akis-odak-app.web.app/ota/manifest.json';
+
+  /* Şu an ÇALIŞAN paketin damgası (index.html'deki ?v=). Sunucudaki paket bununla
+     aynıysa indirilecek bir şey yok — mağazadan yeni kurulan cihaz, kendi içindeki
+     paketin aynısını boşuna indirip bundle değiştirmesin. */
+  function calisanDamga(){
+    try{
+      var sc = document.querySelector('script[src*="app.js"]');
+      var m  = sc && sc.getAttribute('src').match(/[?&]v=([^&"'\s]+)/);
+      return m ? m[1] : '';
+    }catch(e){ return ''; }
+  }
   var BEKLE_MS = 4000;                 // açılışı yavaşlatmasın
   var SON_KEY  = 'akora.otaSurum';     // en son indirilen paket sürümü
 
@@ -74,7 +85,18 @@
     fetch(MANIFEST + '?t=' + Date.now(), {cache:'no-store'})
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(m){
-        if(!m || !m.surum || !m.url) return;
+        if(!m) return;
+
+        /* 🚨 ACİL GERİ ALMA: sunucu "geriAl" derse cihaz APK'daki sürüme döner.
+           Bozuk bir OTA paketi çıkarsa tek kurtarma kolu budur. */
+        if(m.geriAl === true){
+          try{ localStorage.removeItem(SON_KEY); }catch(e){}
+          if(u.reset){ log('GERİ ALMA — APK sürümüne dönülüyor'); try{ return u.reset(); }catch(e){} }
+          return;
+        }
+        if(!m.surum || !m.url) return;
+
+        if(m.surum === calisanDamga()){ log('sunucudaki paket = çalışan paket', m.surum); return; }
 
         var son = '';
         try{ son = localStorage.getItem(SON_KEY) || ''; }catch(e){}
@@ -85,8 +107,14 @@
             log('paket bu APK için fazla yeni — atlanıyor', m.enAzKod, '>', kod);
             return;
           }
-          log('indiriliyor', m.surum);
-          return u.download({ url: m.url, version: m.surum })
+          /* DELTA: manifest varsa eklenti APK'nın içinde AYNI sha256 ile duran dosyaları
+             yeniden indirmez → 48 MB'lık uygulamada yalnız değişen dosyalar iner.
+             Manifest yoksa eski yol (zip) çalışır. */
+          var istek = { url: m.url, version: m.surum };
+          if(m.manifest && m.manifest.length) istek.manifest = m.manifest;
+          else if(m.sha256) istek.checksum = m.sha256;
+          log('indiriliyor', m.surum, istek.manifest ? ('delta ' + istek.manifest.length + ' dosya') : 'zip');
+          return u.download(istek)
             .then(function(paket){
               if(!paket || !paket.id) return;
               // Hemen değiştirmiyoruz: kullanıcı seansın ortasındaysa kesmeyelim.
