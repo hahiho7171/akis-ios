@@ -8,9 +8,11 @@
     /* 2026-08-29 kullanıcı kararı:
        · kum saati kaldırıldı → varsayılan görsel HALKA
        · "Kendin ayarla" 10 dakikadan başlar
-       · açılışta MÜZİK KAPALI, yalnız saat tik-takı açık (mix.tick) */
+       · 1 EYL 2026 kullanıcı kararı: SES STANDARDI = yalnız Lo-fi, YARIM ses.
+         Ortam sesleri (şömine · kuş · tik-tak…) varsayılan KAPALI; isteyen
+         "Sesler" panelinden kendisi açar. Eskiden tik-tak TAM sesle açıktı. */
     mode:'pomodoro', workMin:10, breakMin:5, visual:'ring',
-    background:'none', mix:{tick:35}, music:'off', musicVol:40,
+    background:'none', mix:{}, music:'lofi', musicVol:50,
     deepFocus:true,          // ⑧ 2026-08-28: rakipte ceza VARSAYILAN AÇIK; motivasyonun kaynağı o.
                              //    Eski kullanıcının kapattığı tercih localStorage'dan gelir, bozulmaz.
     overtime:false,          // ⑪ süre dolunca yukarı saymaya devam et
@@ -33,6 +35,22 @@
       const sesBos = !settings.mix || !Object.keys(settings.mix).some(k => settings.mix[k] > 0);
       if(settings.music === 'classic' && sesBos){ settings.music = 'off'; settings.mix = {tick:35}; }
       localStorage.setItem('akora.sure10','1');
+      saveSettings();
+    }
+  }catch(e){}
+
+  /* 🔊 SES STANDARDI (1 EYL 2026 kullanıcı kararı)
+     Şikâyet: "hangi seçenek açılırsa açılsın bazılarında şömine, bazılarında kuş
+     sesi açık geliyordu". Sebep: ortam sesi karışımı cihazda kalıcı; kimde ne
+     kaldıysa o çalıyordu. Karar: standart = YALNIZ Lo-fi, YARIM ses.
+     Bir KEZ herkeste standarda çekilir (bayrak yazılır); sonrasında kullanıcı
+     "Sesler" panelinden ne yaptıysa o kalır, bir daha dokunulmaz. */
+  try{
+    if(!localStorage.getItem('akora.sesStandart1')){
+      settings.music    = 'lofi';
+      settings.musicVol = 50;
+      settings.mix      = {};
+      localStorage.setItem('akora.sesStandart1','1');
       saveSettings();
     }
   }catch(e){}
@@ -1302,8 +1320,15 @@
     if(g.tur==='aksam')      return t('q_aksam');
     return '';
   }
+  /* Kart İKİ yerde duruyor: istatistik › Başarımlar ve ana ekrandaki
+     "Günlük ödül" alt sayfası. Bu yüzden id yerine SINIF kullanılır — aynı id
+     iki kez olsaydı düğmeler yanlış karta bağlanırdı. (1 Eyl 2026) */
   function refreshDailyCard(){
-    const box=$('#daily-card'); if(!box) return;
+    document.querySelectorAll('.daily-card').forEach(gunlukKartKur);
+    odulNoktaYenile();
+  }
+  function gunlukKartKur(box){
+    if(!box) return;
     const ci=AkisStats.checkinDurum();
     const gv=AkisStats.gunlukGorevler();
     const ay=AkisStats.aylikMucadele();
@@ -1311,7 +1336,7 @@
     let h = `<div class="dc-head">
         <div><b>${esc(t('checkin'))}</b>
           <div class="dc-sub">${esc(ci.seri>0 ? t('checkin_streak',{n:ci.seri}) : t('daily_title'))}</div></div>
-        <button class="dc-btn" id="dc-checkin" ${ci.alindiMi?'disabled':''}>
+        <button class="dc-btn dc-checkin" ${ci.alindiMi?'disabled':''}>
           ${ci.alindiMi ? esc(t('checkin_done')) : esc(t('checkin_get'))+' +'+ci.odul}
         </button>
       </div><div class="dc-sep"></div>
@@ -1331,14 +1356,14 @@
     h += `<div class="dc-sep"></div>
       <div class="dc-quest${ay.bitti?' bitti':''}">
         <span class="qt"><b>${esc(t('monthly'))}</b><br>${esc(t('monthly_body',{n:ay.gun,m:ay.hedef}))}</span>
-        <button class="dc-btn" id="dc-aylik" ${(!ay.bitti||ay.alindi)?'disabled':''}>
+        <button class="dc-btn dc-aylik" ${(!ay.bitti||ay.alindi)?'disabled':''}>
           ${ay.alindi ? '✓' : '+'+ay.odul}
         </button>
       </div><div class="dc-bar"><i style="width:${ayYuzde}%"></i></div>`;
 
     box.innerHTML=h;
 
-    const cb=$('#dc-checkin');
+    const cb=box.querySelector('.dc-checkin');
     if(cb) cb.addEventListener('click', ()=>{
       const r=AkisStats.checkinAl();
       if(r.ok){ toast('+'+r.odul+' 🪙'); refreshDailyCard(); refreshCoinPill(); }
@@ -1347,12 +1372,35 @@
       const r=AkisStats.gorevOdulAl(b.dataset.gorev);
       if(r.ok){ toast('+'+r.odul+' 🪙'); refreshDailyCard(); refreshCoinPill(); }
     }));
-    const ab=$('#dc-aylik');
+    const ab=box.querySelector('.dc-aylik');
     if(ab) ab.addEventListener('click', ()=>{
       const r=AkisStats.aylikOdulAl();
       if(r.ok){ toast('+'+r.odul+' 🪙'); refreshDailyCard(); refreshCoinPill(); }
     });
   }
+
+  /* ---- ANA EKRANDAKİ ÖDÜL DÜĞMESİ (1 Eyl 2026 kullanıcı isteği) ----
+     Şikâyet: "günlük ödül çok gizli bir yerde, kimse göremiyor." Ödül artık
+     ana ekranın üstünde duruyor; alınacak bir şey varsa üstünde kırmızı nokta
+     yanıyor, dokununca aynı kart alt sayfada açılıyor. */
+  function odulVarMi(){
+    try{
+      if(!AkisStats.checkinDurum().alindiMi) return true;
+      if(AkisStats.gunlukGorevler().some(g=>g.bitti && !g.alindi)) return true;
+      const ay=AkisStats.aylikMucadele();
+      if(ay && ay.bitti && !ay.alindi) return true;
+    }catch(e){}
+    return false;
+  }
+  function odulNoktaYenile(){
+    const n=$('#odul-nokta'); if(!n) return;
+    n.classList.toggle('acik', odulVarMi());
+  }
+  function odulAc(){
+    refreshDailyCard();
+    try{ if(window.AkoraAna && AkoraAna.sheetAc) AkoraAna.sheetAc('odul'); }catch(e){}
+  }
+  try{ window.AkoraOdul = { ac: odulAc, yenile: odulNoktaYenile, varMi: odulVarMi }; }catch(e){}
 
   // ---- ④ DÖNEM GRAFİKLERİ (Gün / Hafta / Ay / Yıl) ----
   let aktifDonem='hafta';

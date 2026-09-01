@@ -88,6 +88,15 @@
 }
 .ana .ikon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .ana .bosluk{flex:1}
+
+/* GÜNLÜK ÖDÜL düğmesi — ana ekranın üstünde, jetonun solunda (1 Eyl 2026).
+   Alınacak ödül varsa sağ üstte kırmızı nokta yanar. */
+.ana .odul-btn{position:relative;margin-inline-end:8px}
+.ana .odul-btn .odul-nokta{
+  position:absolute;top:6px;inset-inline-end:6px;width:9px;height:9px;border-radius:50%;
+  background:#e5484d;border:1.5px solid hsl(0 0% 100% / .9);display:none;
+}
+.ana .odul-btn .odul-nokta.acik{display:block}
 .ana .jeton{
   display:flex;align-items:center;gap:7px;padding:9px 15px 9px 10px;border-radius:var(--r-hap);
   min-height:44px;   /* DESIGN.md: dokunma hedefi 44px */
@@ -770,19 +779,30 @@
 }
 .shop-onizle.open{display:flex}
 .so-kart{
-  position:relative;width:min(86vw,340px);padding:20px 20px 16px;
+  position:relative;overflow:hidden;width:min(86vw,340px);padding:20px 20px 16px;
   border-radius:var(--r-xl);background:var(--zemin);
   box-shadow:0 24px 60px hsl(196 45% 12% / .4);text-align:center;
 }
+/* 🪤 1 EYL: `max-height:100%` DİKEY görselde çalışmıyordu (ızgara öğesinde yüzde
+   yükseklik çözülmüyor) → uzun ağaç (leylak, kavak, altın…) kartın dışına taşıyor,
+   ismin üstüne biniyordu. Görsel artık konumlandırılmış kutuya ÇİVİLİ. */
 .so-gorsel{
-  height:min(46vh,300px);display:grid;place-items:center;
+  position:relative;overflow:hidden;
+  height:300px;height:min(46vh,300px);       /* min() desteklenmezse 300px */
+  display:grid;place-items:center;
   background:linear-gradient(180deg,var(--marka-cok-acik),var(--zemin-2));
   border-radius:var(--r-lg);padding:14px;
 }
-.so-gorsel img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.so-gorsel img{
+  position:absolute;inset:0;width:100%;height:100%;
+  padding:14px;box-sizing:border-box;
+  object-fit:contain;display:block;
+}
 .so-ad{margin:13px 0 0;font-size:17px;font-weight:700;color:var(--metin)}
 .so-x{
-  position:absolute;top:10px;inset-inline-end:10px;width:36px;height:36px;
+  /* görsel kutusu artık konumlandırılmış (position:relative) → kapat düğmesi
+     altında kalmasın diye z-index şart (1 Eyl) */
+  position:absolute;z-index:2;top:10px;inset-inline-end:10px;width:36px;height:36px;
   display:grid;place-items:center;border-radius:12px;cursor:pointer;
   background:var(--zemin-2);border:1px solid var(--cizgi);color:var(--metin-2);
 }

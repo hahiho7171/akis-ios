@@ -8,8 +8,8 @@
   <link rel="icon" href="assets/favicon.png" sizes="32x32" />
   <link rel="icon" href="assets/icon-192.png" sizes="192x192" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
-  <link rel="stylesheet" href="css/style.css?v=2.8.2f" />
-  <link rel="stylesheet" href="css/anaekran.css?v=2.8.2f" />
+  <link rel="stylesheet" href="css/style.css?v=2.8.3" />
+  <link rel="stylesheet" href="css/anaekran.css?v=2.8.3" />
 </head>
 <body>
   <div id="app">
@@ -27,6 +27,10 @@
             <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
           </button>
           <span class="bosluk"></span>
+          <button id="btn-odul" class="ikon odul-btn" aria-label="Odul">
+            <svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="11" rx="2"/><path d="M3 13h18M12 9v11"/><path d="M12 9S10.8 5 8.6 5a2.1 2.1 0 0 0 0 4.2M12 9s1.2-4 3.4-4a2.1 2.1 0 0 1 0 4.2"/></svg>
+            <i class="odul-nokta" id="odul-nokta"></i>
+          </button>
           <button id="btn-jeton" class="jeton" aria-label="Jeton"><i></i><b id="jeton-n">0</b></button>
         </header>
 
@@ -185,7 +189,7 @@
           </div>
           <div class="vol-row">
             <svg class="vol-ic" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/></svg>
-            <input id="music-vol" type="range" min="0" max="100" value="40" />
+            <input id="music-vol" type="range" min="0" max="100" value="50" />
           </div>
         </div>
         <button id="premium-row" class="premium-row">✦ Premium — reklamsız</button>
@@ -324,6 +328,18 @@
         <div class="tk-detay" id="tk-detay"></div>
       </div>
     </section>
+
+    <!-- Günlük ödül: ana ekrandaki 🎁 düğmesi bunu açar. İçerik istatistikteki
+         kartın AYNISI (`.daily-card`) — tek kaynak, iki yerde gösterilir. -->
+    <div class="ak-sheet" data-sheet="odul">
+      <div class="ak-sheet-ust">
+        <h3 data-i18n="checkin">Günlük giriş</h3>
+        <button class="ikon" data-sheet-kapat="1" aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="ak-sheet-govde">
+        <div class="daily-card" id="odul-card"></div>
+      </div>
+    </div>
 
     <div class="ak-sheet" data-sheet="hesap">
       <div class="ak-sheet-ust">
@@ -677,26 +693,26 @@
 
   <!-- 🚨 TEST SÜRÜMÜ TOHUMU — mağaza derlemesinden önce bu satır SİLİNİR -->
   <!-- 🚨 OTA EN BAŞTA: notifyAppReady() gecikirse Capgo yeni paketi geri alır -->
-  <script src="js/ota.js?v=2.8.2f"></script>
-  <script src="js/i18n.js?v=2.8.2f"></script>
-  <script src="js/audio.js?v=2.8.2f"></script>
-  <script src="js/visuals.js?v=2.8.2f"></script>
-  <script src="js/kapi_ayar.js?v=2.8.2f"></script>
-  <script src="js/ads.js?v=2.8.2f"></script>
-  <script src="js/premium.js?v=2.8.2f"></script>
-  <script src="js/timer.js?v=2.8.2f"></script>
-  <script src="js/stats.js?v=2.8.2f"></script>
-  <script src="js/garden.js?v=2.8.2f"></script>
-  <script src="js/plot.js?v=2.8.2f"></script>
-  <script src="js/push.js?v=2.8.2f"></script>
-  <script src="js/notify.js?v=2.8.2f"></script>
-  <script src="js/app.js?v=2.8.2f"></script>
-  <script src="js/anaekran.js?v=2.8.2f"></script>
-  <script src="js/takvim.js?v=2.8.2f"></script>
-  <script src="js/kitaplik.js?v=2.8.2f"></script>
-  <script src="js/yedek.js?v=2.8.2f"></script>
-  <script src="js/guncelleme.js?v=2.8.2f"></script>
-  <script src="js/hesap.js?v=2.8.2f"></script>
-  <script src="js/degerlendirme.js?v=2.8.2f"></script>
+  <script src="js/ota.js?v=2.8.3"></script>
+  <script src="js/i18n.js?v=2.8.3"></script>
+  <script src="js/audio.js?v=2.8.3"></script>
+  <script src="js/visuals.js?v=2.8.3"></script>
+  <script src="js/kapi_ayar.js?v=2.8.3"></script>
+  <script src="js/ads.js?v=2.8.3"></script>
+  <script src="js/premium.js?v=2.8.3"></script>
+  <script src="js/timer.js?v=2.8.3"></script>
+  <script src="js/stats.js?v=2.8.3"></script>
+  <script src="js/garden.js?v=2.8.3"></script>
+  <script src="js/plot.js?v=2.8.3"></script>
+  <script src="js/push.js?v=2.8.3"></script>
+  <script src="js/notify.js?v=2.8.3"></script>
+  <script src="js/app.js?v=2.8.3"></script>
+  <script src="js/anaekran.js?v=2.8.3"></script>
+  <script src="js/takvim.js?v=2.8.3"></script>
+  <script src="js/kitaplik.js?v=2.8.3"></script>
+  <script src="js/yedek.js?v=2.8.3"></script>
+  <script src="js/guncelleme.js?v=2.8.3"></script>
+  <script src="js/hesap.js?v=2.8.3"></script>
+  <script src="js/degerlendirme.js?v=2.8.3"></script>
 </body>
 </html>

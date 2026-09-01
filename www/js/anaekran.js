@@ -379,9 +379,42 @@
       g.value = k.ad;
       g.dispatchEvent(new Event('input', {bubbles:true}));
     }
+    kitaptanAd = k.ad;               // etiket degisince temizlenebilsin
+    try{ localStorage.setItem('akora.adKitaptan', k.ad); }catch(e){}
     try{ localStorage.setItem('akora.sonkitap', k.id); }catch(e){}
     sheetKapat();
     etiketYenile();
+  }
+
+  /* Kitaptan gelen seans adi: kullanici baska bir etikete gecince silinir.
+     🪤 2026-08-31: "Okuma"da kitap secip sonra "Ders"e geçince çubukta
+     "Ders · Anna Karenina" kalıyordu; kitap adı hiçbir şeyle silinmiyordu.
+     Elle yazılan ad korunur — yalnız kitaptan gelen ad temizlenir. */
+  let kitaptanAd = '';
+  function kitaptanAdOku(){
+    if(kitaptanAd) return kitaptanAd;
+    try{ return localStorage.getItem('akora.adKitaptan') || ''; }catch(e){ return ''; }
+  }
+  /* Yazı bir KİTAP adı mı? (WebView yeniden yüklendiğinde bellekteki iz kayboluyor;
+     o yüzden hem son seçilen kitaba hem tüm kitaplığa bakılır.) */
+  function kitapAdiMi(v){
+    const d = v.toLocaleLowerCase();
+    if(d && d === kitaptanAdOku().trim().toLocaleLowerCase()) return true;
+    try{
+      return (AkoraKitaplik.kitaplar() || [])
+        .some(k => String(k.ad || '').trim().toLocaleLowerCase() === d);
+    }catch(e){ return false; }
+  }
+  function kitapAdiniBirak(yeniEtiket){
+    if(yeniEtiket === OKUMA_ETIKET) return;      // okumada kalıyorsa dursun
+    const g = $('#task-input');
+    const v = g ? g.value.trim() : '';
+    if(!v) { kitaptanAd = ''; return; }
+    if(!kitapAdiMi(v)) return;                   // elle yazılan ad korunur
+    g.value = '';
+    g.dispatchEvent(new Event('input', {bubbles:true}));
+    kitaptanAd = '';
+    try{ localStorage.removeItem('akora.adKitaptan'); }catch(e){}
   }
 
   /* Etiket çubuğunun yazısı: "Ders" ya da "Ders · Matematik".
@@ -438,6 +471,8 @@
     const ilkTur = sonEtiket === null;
     sonEtiket = a;
     if(ilkTur) return;              // açılışta kayıtlı etiket için tetikleme
+
+    kitapAdiniBirak(a);            // etiket değişti → kitaptan gelen ad kalmasın
 
     bayrakKur(ETIKET_DOKUNULDU);
     const bg = ETIKET_ARKAPLAN[a];
@@ -499,6 +534,7 @@
     if(es) kitapBolumu();
     etiketYenile();
     jetonYenile();
+    try{ if(window.AkoraOdul) AkoraOdul.yenile(); }catch(e){}   // ödül noktası
     agacYenile();
     tonYenile();
   }
@@ -571,6 +607,12 @@
       });
     }
 
+    // günlük ödül düğmesi → ödül alt sayfası (kart app.js'te, tek kaynak)
+    const ob = $('#btn-odul');
+    if(ob) ob.addEventListener('click', () => {
+      try{ if(window.AkoraOdul) AkoraOdul.ac(); }catch(e){}
+    });
+
     // jeton → dükkân (istatistik ekranındaki dükkân düğmesini tetikler)
     const jb = $('#btn-jeton');
     if(jb) jb.addEventListener('click', () => {
@@ -625,6 +667,10 @@
     document.addEventListener('keydown', e => {
       if(e.key === 'Escape') hepsiKapat();
     });
+
+    /* Açılışta da bak: WebView yeniden yüklenince form değeri geri gelebiliyor;
+       etiket "Okuma" değilse kitap adı çubukta kalmasın. */
+    try{ kitapAdiniBirak(AkisStats.activeTag()); }catch(e){}
 
     bolumKur();
     yenile();

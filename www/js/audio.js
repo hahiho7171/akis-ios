@@ -203,6 +203,13 @@ const AkisAudio = (() => {
     premiumKeys: PREMIUM_KEYS.slice(),
     premiumFiyat: (k)=> PREMIUM_SES[k] || 0,
     setTrackVolume, getTrackVolume, applyMix,
+    /* Tanılama: müzik oynatıcısı `new Audio()` ile üretiliyor, DOM'da yok →
+       denetim betikleri göremiyordu. Salt okur. (1 Eyl 2026) */
+    muzikTanilama(){
+      return { tur: musicKind, ses: +musicVol.toFixed(3),
+               kaynak: musicEl ? String(musicEl.src||'').split('/').pop().split('?')[0] : null,
+               duraklamis: musicEl ? musicEl.paused : null };
+    },
     /* Tanılama: döngü geçişini DIŞARIDAN ölçebilmek için. Oynatıcılar
        `new Audio()` ile üretiliyor ve DOM'da olmadıkları için denetim
        betikleri onları göremiyordu. Sadece okur, hiçbir şeyi değiştirmez. */

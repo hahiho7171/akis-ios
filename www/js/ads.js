@@ -24,10 +24,12 @@ window.AkisAds = (function () {
   const REAL = {
     interstitial: { android: 'ca-app-pub-3326866070505611/3192512808', ios: 'ca-app-pub-3326866070505611/8364948438' },
     rewarded:     { android: 'ca-app-pub-3326866070505611/3248353127', ios: 'ca-app-pub-3326866070505611/5095641474' },
-    /* ŞERİT (banner) birimi AdMob'da HENÜZ AÇILMADI. Açılınca ayar dosyasındaki
-       `birimler.banner` alanına yazmak yeter — mağaza güncellemesi gerekmez.
-       Boşken şerit reklam gösterilmez (yanlış birimle istek atılmaz). */
-    banner:       { android: '', ios: '' },
+    /* ŞERİT (banner) — birimler 1 Eyl 2026'da AdMob'da açıldı.
+       Yayınlanmış sürümlerde bu alan BOŞ; canlı cihazlara `kapilar.json`
+       içindeki `birimler.banner` ile ulaşır (mağaza güncellemesi gerekmez).
+       Şeridin AÇILMASI ayrı: `banner.acik` bayrağı. */
+    banner:       { android: 'ca-app-pub-3326866070505611/7260984823',
+                    ios:     'ca-app-pub-3326866070505611/9543638438' },
   };
   const USE_TEST = false;
 
